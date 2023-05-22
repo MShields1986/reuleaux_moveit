@@ -1,15 +1,22 @@
 #include <map_generation/map_generation.h>
+#include <string>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 
 namespace reuleaux
 {
-mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_name, const std::string &path,
-                             const std::string &filename, const std::string& pkg_name, const double &resolution, const double &radius, bool check_collision)
+mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_name,
+                            // const std::string& planning_frame,
+                            const std::string& ee_frame,
+                            const std::string &path, const std::string &filename,
+                            const std::string& pkg_name, const double &resolution,
+                            const double &radius, bool check_collision)
 {
   nh_ = node;
   group_name_ = group_name;
+  // planning_frame_ = planning_frame;
+  ee_frame_ = ee_frame;
   path_ = path;
   filename_ = filename;
   pkg_name_=pkg_name;
@@ -17,6 +24,17 @@ mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_nam
   radius_ = radius;
   check_collision_= check_collision;
   group_.reset(new moveit::planning_interface::MoveGroupInterface(group_name_));
+
+  std::string current_ee_frame_;
+  current_ee_frame_ = group_->getEndEffectorLink();
+  ROS_INFO("-------------------------------------------------");
+  ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
+  ROS_INFO_STREAM("Attempting to set effector frame: " << ee_frame_);
+  group_->setEndEffectorLink(ee_frame_);
+  current_ee_frame_ = group_->getEndEffectorLink();
+  ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
+  ROS_INFO("-------------------------------------------------");
+
   init_ws_.WsSpheres.clear();
   filtered_ws_.WsSpheres.clear();
 }
@@ -34,7 +52,7 @@ void mapGeneration::discretizeWorkspace(geometry_msgs::Pose& pose)
 
 void mapGeneration::filterWorkspace()
 {
-  reuleaux::ReachAbility* reach(new reuleaux::ReachAbility(nh_,group_name_, check_collision_));
+  reuleaux::ReachAbility* reach(new reuleaux::ReachAbility(nh_, group_name_, ee_frame_, check_collision_));
   reach->setInitialWorkspace(init_ws_);
   reach->createReachableWorkspace();
   reach->getFinalWorkspace(filtered_ws_);

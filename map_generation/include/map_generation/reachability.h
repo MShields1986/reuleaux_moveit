@@ -1,13 +1,12 @@
 #ifndef REACHABILITY_H
 #define REACHABILITY_H
 #include <ros/ros.h>
-#include <map_generation/WorkSpace.h>
+#include <map_generation/WorkSpace.h> // File is missing from includes...
 #include <map_generation/utility.h>
 #include <Eigen/Eigen>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit_msgs/GetPositionIK.h>
 #include <moveit_msgs/PositionIKRequest.h>
-//#include<moveit/move_group_interface/move_group.h>
 #include <moveit/move_group_interface/move_group_interface.h>
 
 namespace reuleaux
@@ -15,7 +14,10 @@ namespace reuleaux
 class ReachAbility
 {
 public:
-  ReachAbility(ros::NodeHandle& node, std::string group_name, bool check_collision);
+  ReachAbility(ros::NodeHandle& node, std::string group_name,
+               const std::string& ee_frame,
+               bool check_collision);
+
   void setInitialWorkspace(const map_generation::WorkSpace& initial_ws);
   void getFinalWorkspace(map_generation::WorkSpace& final_ws);
   bool getIKSolution(const geometry_msgs::Pose& pose, moveit_msgs::RobotState& robot_state);
