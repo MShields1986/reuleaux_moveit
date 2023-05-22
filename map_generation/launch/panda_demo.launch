@@ -7,7 +7,8 @@
     <arg name="moveit_pkg" default="panda_moveit_config"/>
     <arg name="move_group" default="panda_arm"/>
     <arg name="planning_frame" default="panda_link0"/>
-    <arg name="resolution" default="0.15"/>
+    <arg name="ee_frame" default="panda_hand_tcp"/>
+    <arg name="resolution" default="0.4"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
@@ -18,12 +19,14 @@
         <group if="$(arg create_map)">
             <node name="map_gen" pkg="map_generation" type="map_generation_node" output="screen">
               <param name="group_name" value="$(arg move_group)"/>
+              <param name="planning_frame" value="$(arg planning_frame)"/>
+              <param name="ee_frame" value="$(arg ee_frame)"/>
               <param name="pkg_name" value="$(arg moveit_pkg)"/>
-              <param name="resolution" value="$(arg resolution)" />
-              <param name="radius" value="1" />
+              <param name="resolution" value="$(arg resolution)"/>
+              <param name="radius" value="1"/>
               <param name="check_collision" value="true"/>
-              <param name="path" value="$(find map_generation)/maps/" />
-              <param name="filename" value="default" />
+              <param name="path" value="$(find map_generation)/maps/"/>
+              <param name="filename" value="default"/>
             </node>
         </group>
 

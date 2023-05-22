@@ -1,13 +1,27 @@
-#include<map_generation/reachability.h>
+#include <map_generation/reachability.h>
 
 namespace reuleaux
 {
-ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name, bool check_collision)
-  :group_name_(group_name), check_collision_(check_collision)
+ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
+                           const std::string& ee_frame, bool check_collision)
+  :group_name_(group_name),
+  // ee_frame_(ee_frame),
+  check_collision_(check_collision)
 {
   nh_ = node;
   client_ = nh_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
   group_.reset(new moveit::planning_interface::MoveGroupInterface(group_name_));
+
+  std::string current_ee_frame_;
+  current_ee_frame_ = group_->getEndEffectorLink();
+  ROS_INFO("-------------------------------------------------");
+  ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
+  ROS_INFO_STREAM("Attempting to set effector frame: " << ee_frame);
+  group_->setEndEffectorLink(ee_frame);
+  current_ee_frame_ = group_->getEndEffectorLink();
+  ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
+  ROS_INFO("-------------------------------------------------");
+
   planning_frame_ = group_->getPlanningFrame();
   final_ws_.WsSpheres.clear();
   init_ws_.WsSpheres.clear();

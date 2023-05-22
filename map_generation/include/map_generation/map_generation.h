@@ -1,16 +1,15 @@
 #ifndef MAP_GENERATION_H
 #define MAP_GENERATION_H
 
-#include<map_generation/discretization.h>
-#include<map_generation/utility.h>
-#include<map_generation/discretization.h>
-#include<map_generation/reachability.h>
-#include<map_generation/hdf5_dataset.h>
-#include<map_generation/WorkSpace.h>
+#include <map_generation/discretization.h>
+#include <map_generation/utility.h>
+#include <map_generation/discretization.h>
+#include <map_generation/reachability.h>
+#include <map_generation/hdf5_dataset.h>
+#include <map_generation/WorkSpace.h>
 
-//#include<moveit/move_group_interface/move_group.h>
 #include <moveit/move_group_interface/move_group_interface.h>
-#include<moveit/robot_state/robot_state.h>
+#include <moveit/robot_state/robot_state.h>
 #include <Eigen/Eigen>
 #include <eigen_conversions/eigen_msg.h>
 
@@ -19,8 +18,12 @@ namespace reuleaux
 class mapGeneration
 {
 public:
-  mapGeneration(ros::NodeHandle &node, const std::string& group_name, const std::string& path,
-                const std::string& filename, const std::string& pkg_name, const double& resolution, const double& radius, bool check_collision);
+  mapGeneration(ros::NodeHandle &node, const std::string& group_name,
+                // const std::string& planning_frame,
+                const std::string& ee_frame,
+                const std::string& path, const std::string& filename,
+                const std::string& pkg_name, const double& resolution,
+                const double& radius, bool check_collision);
 
   void generate();
 
@@ -34,6 +37,8 @@ private:
 
    ros::NodeHandle nh_;
    std::string group_name_;
+   // std::string planning_frame_;
+   std::string ee_frame_;
    std::string path_;
    std::string filename_;
    std::string pkg_name_;
