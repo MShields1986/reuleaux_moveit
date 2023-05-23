@@ -4,15 +4,14 @@
     <arg name="create_map" default="true"/>         <!-- true = create map | false = load map -->
     <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
 
-    <arg name="moveit_pkg" default="panda_moveit_config"/>
-    <arg name="move_group" default="panda_arm"/>
-    <arg name="planning_frame" default="panda_link0"/>
-    <arg name="ee_frame" default="panda_hand_tcp"/>
+    <arg name="moveit_pkg" default="kmriiwa_tooled_moveit_config"/>
+    <arg name="move_group" default="roller_probe"/> <!-- roller_probe / zivid_optical / zivid_optical_gazebo / iiwa_arm -->
+    <arg name="planning_frame" default="kmr_iiwa_link_0"/>
+    <arg name="ee_frame" default="roller_probe_contact_frame"/> <!-- zivid_optical_frame / roller_probe_contact_frame -->
     <arg name="resolution" default="0.2"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
-        <!-- <include file="$(find $(arg moveit_pkg))/launch/demo.launch"> -->
         <include file="$(eval find(moveit_pkg) + '/launch/demo.launch')">
             <arg name="use_rviz" value="false" />
         </include>
