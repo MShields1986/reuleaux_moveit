@@ -8,12 +8,11 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "map_generation_node");
   ros::NodeHandle nh_("~");
 
-  std::string group_name_, planning_frame_, ee_frame_, path_, filename_, pkg_name_;
+  std::string group_name_, ee_frame_, path_, filename_, pkg_name_;
   bool check_collision_;
   double resolution_, radius_;
 
   nh_.getParam("group_name", group_name_);
-  nh_.getParam("planning_frame", planning_frame_);
   nh_.getParam("ee_frame", ee_frame_);
   nh_.getParam("resolution", resolution_);
   nh_.getParam("radius", radius_);

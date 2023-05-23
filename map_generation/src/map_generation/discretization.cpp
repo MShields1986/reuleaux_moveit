@@ -24,12 +24,17 @@ Discretization::Discretization(geometry_msgs::Pose pose, double resolution, doub
 
 octomap::OcTree* Discretization::generateBoxTree(const octomap::point3d &origin, const double resolution, const double diameter)
 {
+  // TODO: diameter arg here actually gets passed a variable called radius_ on line 143...needs checking
+
+  // TODO: Consider exposing as a parameter or allowing user to explicitly define volume
+  float volume_size_factor_{1.8}; // Originally 1.5
+
   octomap::OcTree* tree = new octomap::OcTree(float(resolution)/2);
-  for(float x = origin.x() - diameter * 1.5; x<=origin.x() + diameter * 1.5; x+=resolution)
+  for(float x = origin.x() - diameter * volume_size_factor_; x<=origin.x() + diameter * volume_size_factor_; x+=resolution)
   {
-    for(float y = origin.y() - diameter * 1.5; y<=origin.y() + diameter * 1.5; y+=resolution)
+    for(float y = origin.y() - diameter * volume_size_factor_; y<=origin.y() + diameter * volume_size_factor_; y+=resolution)
     {
-      for(float z = 0; z<=origin.z() + diameter * 1.5; z+=resolution)
+      for(float z = 0; z<=origin.z() + diameter * volume_size_factor_; z+=resolution)
       {
         octomap::point3d point;
         point.x() = x;

@@ -4,15 +4,14 @@
     <arg name="create_map" default="true"/>         <!-- true = create map | false = load map -->
     <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
 
-    <arg name="moveit_pkg" default="panda_moveit_config"/>
-    <arg name="move_group" default="panda_arm"/>
-    <arg name="planning_frame" default="panda_link0"/>
-    <arg name="ee_frame" default="panda_hand_tcp"/>
-    <arg name="resolution" default="0.2"/>
+    <arg name="moveit_pkg" default="kmriiwa_tooled_moveit_config"/>
+    <arg name="move_group" default="zivid_optical"/> <!-- roller_probe / zivid_optical / zivid_optical_gazebo / iiwa_arm -->
+    <arg name="planning_frame" default="kmr_iiwa_base_footprint"/> <!-- kmr_iiwa_base_footprint / kmr_iiwa_link_0 -->
+    <arg name="ee_frame" default="zivid_optical_frame"/> <!-- zivid_optical_frame / roller_probe_contact_frame -->
+    <arg name="resolution" default="0.1"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
-        <!-- <include file="$(find $(arg moveit_pkg))/launch/demo.launch"> -->
         <include file="$(eval find(moveit_pkg) + '/launch/demo.launch')">
             <arg name="use_rviz" value="false" />
         </include>
@@ -36,7 +35,7 @@
         <group unless="$(arg create_map)">
             <group unless="$(arg base_placement)">   <!-- Load and Visualise Reachability Map -->
                 <!-- Use the original Reuleaux package's map loader -->
-                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/$(arg move_group)_$(arg resolution)_reachability.h5" />
+                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/kmriiwa_tooled_$(arg move_group)_$(arg resolution)_reachability.h5" />
 
                 <!-- Reuleaux's load map doesn't use the same frame as the frame the map was created in for some reason, it forces base_link and isn't parameterised currently, so we need a static tf from the planning frame to the base_link frame -->
                 <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />
