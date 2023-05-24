@@ -12,6 +12,12 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
   client_ = nh_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
   group_.reset(new moveit::planning_interface::MoveGroupInterface(group_name_));
 
+  std::string current_planning_frame_;
+  current_planning_frame_ = group_->getPlanningFrame();
+  ROS_INFO("-------------------------------------------------");
+  ROS_INFO_STREAM("Current planning frame: " << current_planning_frame_);
+  ROS_INFO("-------------------------------------------------");
+
   std::string current_ee_frame_;
   current_ee_frame_ = group_->getEndEffectorLink();
   ROS_INFO("-------------------------------------------------");
