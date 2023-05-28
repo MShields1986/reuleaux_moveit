@@ -37,7 +37,6 @@ private:
 
    ros::NodeHandle nh_;
    std::string group_name_;
-   // std::string planning_frame_;
    std::string ee_frame_;
    std::string path_;
    std::string filename_;

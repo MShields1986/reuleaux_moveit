@@ -11,11 +11,10 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
   nh_ = node;
   client_ = nh_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
   group_.reset(new moveit::planning_interface::MoveGroupInterface(group_name_));
+  planning_frame_ = group_->getPlanningFrame();
 
-  std::string current_planning_frame_;
-  current_planning_frame_ = group_->getPlanningFrame();
   ROS_INFO("-------------------------------------------------");
-  ROS_INFO_STREAM("Current planning frame: " << current_planning_frame_);
+  ROS_INFO_STREAM("Current planning frame: " << planning_frame_);
   ROS_INFO("-------------------------------------------------");
 
   std::string current_ee_frame_;
@@ -28,7 +27,6 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
   ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
   ROS_INFO("-------------------------------------------------");
 
-  planning_frame_ = group_->getPlanningFrame();
   final_ws_.WsSpheres.clear();
   init_ws_.WsSpheres.clear();
 
