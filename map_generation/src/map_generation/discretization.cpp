@@ -1,4 +1,5 @@
 #include <map_generation/discretization.h>
+#include <memory>
 
 
 namespace reuleaux
@@ -22,14 +23,14 @@ Discretization::Discretization(geometry_msgs::Pose pose, double resolution, doub
   poses_.resize(0);
  }
 
-octomap::OcTree* Discretization::generateBoxTree(const octomap::point3d &origin, const double resolution, const double diameter)
+std::unique_ptr<octomap::OcTree> Discretization::generateBoxTree(const octomap::point3d &origin, const double resolution, const double diameter)
 {
   // TODO: diameter arg here actually gets passed a variable called radius_ on line 143...needs checking
 
   // TODO: Consider exposing as a parameter or allowing user to explicitly define volume
   float volume_size_factor_{1.8}; // Originally 1.5
 
-  octomap::OcTree* tree = new octomap::OcTree(float(resolution)/2);
+  std::unique_ptr<octomap::OcTree> tree(new octomap::OcTree(float(resolution)/2));
   for(float x = origin.x() - diameter * volume_size_factor_; x<=origin.x() + diameter * volume_size_factor_; x+=resolution)
   {
     for(float y = origin.y() - diameter * volume_size_factor_; y<=origin.y() + diameter * volume_size_factor_; y+=resolution)
@@ -47,7 +48,7 @@ octomap::OcTree* Discretization::generateBoxTree(const octomap::point3d &origin,
   return tree;
 }
 
-void Discretization::createCenters(octomap::OcTree *tree, std::vector<geometry_msgs::Point> &centers)
+void Discretization::createCenters(const std::unique_ptr<octomap::OcTree>& tree, std::vector<geometry_msgs::Point> &centers)
 {
   int sphere_count = 0;
   for(octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth_),end = tree->end_leafs(); it!=end;++it)
@@ -140,7 +141,7 @@ void Discretization::getInitialWorkspace(map_generation::WorkSpace& ws)
 
 void Discretization::discretize()
 {
-  octomap::OcTree* tree = generateBoxTree(center_, resolution_, radius_);
+  auto tree = generateBoxTree(center_, resolution_, radius_);
   createCenters(tree, centers_);
   createPoses(centers_, poses_);
 }

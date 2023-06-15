@@ -3,7 +3,6 @@
 
 #include <map_generation/discretization.h>
 #include <map_generation/utility.h>
-#include <map_generation/discretization.h>
 #include <map_generation/reachability.h>
 #include <map_generation/hdf5_dataset.h>
 #include <map_generation/WorkSpace.h>
@@ -19,7 +18,6 @@ class mapGeneration
 {
 public:
   mapGeneration(ros::NodeHandle &node, const std::string& group_name,
-                // const std::string& planning_frame,
                 const std::string& ee_frame,
                 const std::string& path, const std::string& filename,
                 const std::string& pkg_name, const double& resolution,

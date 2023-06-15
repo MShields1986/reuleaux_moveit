@@ -4,13 +4,11 @@
     <arg name="create_map" default="true"/>         <!-- true = create map | false = load map -->
     <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
 
-    <arg name="moveit_pkg" default="kmriiwa_tooled_moveit_config"/>
-    <arg name="move_group" default="rs_optical"/> <!--  rs_optical / ec_contact -->
-    <arg name="planning_frame" default="kmr_base_footprint"/> <!-- kmr_base_footprint / iiwa_link_0 -->
-    <arg name="ee_frame" default="rs_camera_1_color_optical_frame"/> <!-- rs_camera_1_color_optical_frame / lf_ec_probe_contact -->
-
-    <!-- <arg name="resolution" default="0.1"/> -->
-    <arg name="resolution" default="0.5"/>
+    <arg name="moveit_pkg" default="lmc_rpl_ur5_move_it_config"/>
+    <arg name="move_group" default="ur5_arm"/> <!-- manipulator -->
+    <arg name="planning_frame" default="rpl_origin"/> <!-- rpl_origin -->
+    <arg name="ee_frame" default="ur5_tool0"/> <!-- ur5_tool0 -->
+    <arg name="resolution" default="0.1"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
@@ -37,7 +35,7 @@
         <group unless="$(arg create_map)">
             <group unless="$(arg base_placement)">   <!-- Load and Visualise Reachability Map -->
                 <!-- Use the original Reuleaux package's map loader -->
-                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/kmriiwa_tooled_$(arg move_group)_$(arg resolution)_reachability.h5" />
+                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/_$(arg move_group)_$(arg resolution)_reachability.h5" />
 
                 <!-- Reuleaux's load map doesn't use the same frame as the frame the map was created in for some reason, it forces base_link and isn't parameterised currently, so we need a static tf from the planning frame to the base_link frame -->
                 <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />

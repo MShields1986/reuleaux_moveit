@@ -1,4 +1,6 @@
 #include <map_generation/hdf5_dataset.h>
+#include <limits.h>
+#include <stdexcept>
 
 #define RANK_OUT 2
 
@@ -11,7 +13,6 @@ Hdf5Dataset::Hdf5Dataset(std::string fullpath)
   std::stringstream fp(fullpath);
   std::string segment;
   std::vector<std::string> seglist;
-  char the_path[256];
 
   while(std::getline(fp, segment, '/'))
   {
@@ -33,9 +34,16 @@ Hdf5Dataset::Hdf5Dataset(std::string fullpath)
   }
   else
   {
-    getcwd(the_path, 255);
-    strcat(the_path, "/");
-    oss_path << the_path;
+    char the_path[PATH_MAX];
+    if (getcwd(the_path, sizeof(the_path)) != NULL)
+    {
+      oss_path << the_path << "/";
+    }
+    else
+    {
+      ROS_ERROR("Failed to get current working directory");
+      throw std::runtime_error("Failed to get current working directory");
+    }
   }
 
  this->path_ = oss_path.str();
@@ -53,6 +61,7 @@ Hdf5Dataset::Hdf5Dataset(std::string path, std::string filename)
 
 bool Hdf5Dataset::checkPath(std::string path)
 {
+  struct stat st;
   if (stat(path.c_str(), &st)!=0)
   {
     ROS_INFO("Path does not exist yet");
@@ -68,7 +77,7 @@ bool Hdf5Dataset::checkfilename(std::string filename)
   if(filename.find(ext) == std::string::npos)
   {
     ROS_ERROR("Please provide an extension of .h5 It will make life easy");
-    exit(1);
+    throw std::runtime_error("Invalid filename: must have .h5 extension");
   } else {
     return true; // Maybe function ought to return void
   }
@@ -78,10 +87,10 @@ void Hdf5Dataset::createPath(std::string path)
 {
   ROS_INFO("Creating Directory");
   const int dir_err = mkdir(this->path_.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  if(1 == dir_err)
+  if(-1 == dir_err)
   {
-    ROS_INFO("Error Creating Directory");
-    exit(1);
+    ROS_ERROR("Error Creating Directory: %s", this->path_.c_str());
+    throw std::runtime_error("Failed to create directory: " + this->path_);
   }
 }
 
@@ -101,15 +110,14 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
   {
     createPath(this->path_);
   }
-  const char *filepath = this->path_.c_str();
-  const char *name = this->filename_.c_str();
-  char fullpath[300]; // TODO: Probably a better way to do this than hard defining the length
-  strcpy(fullpath, filepath);
-  strcat(fullpath, name);
+  std::string fullpath = this->path_ + this->filename_;
   ROS_INFO("Saving map %s", this->filename_.c_str());
-  this->file_ = H5Fcreate(fullpath, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-  this->group_poses_ = H5Gcreate(this->file_, "/Poses", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  this->group_spheres_ = H5Gcreate(this->file_, "/Spheres", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  try
+  {
+    this->file_ = H5Fcreate(fullpath.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    this->group_poses_ = H5Gcreate(this->file_, "/Poses", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    this->group_spheres_ = H5Gcreate(this->file_, "/Spheres", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   ROS_INFO("Saving poses in reachability map");
   const hsize_t ndims = 2;
   const hsize_t ncols = 10;
@@ -223,17 +231,17 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
   hsize_t dims2[2];  // dataset dimensions
   dims2[0] = SX;
   dims2[1] = SY;
-  double dset2_data[SX][SY];
+  std::vector<double> dset2_data(SX * SY);
 
   for(int i=0;i<spheres.size();++i)
   {
     for(int j=0;j<spheres[i].size();++j)
     {
-       dset2_data[i][j] = spheres[i][j];
+       dset2_data[i * SY + j] = spheres[i][j];
     }
     for (int j = 3; j < SY; j++)
     {
-      dset2_data[i][j] = ri[i];
+      dset2_data[i * SY + j] = ri[i];
     }
 
   }
@@ -242,7 +250,7 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
 
   this->sphere_dataset_ = H5Dcreate2(this->group_spheres_, "sphere_dataset", H5T_NATIVE_DOUBLE,
                                      sphere_dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  H5Dwrite(this->sphere_dataset_, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset2_data);
+  H5Dwrite(this->sphere_dataset_, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset2_data.data());
 
   // Creating attribute
   hsize_t attr_dims;
@@ -259,11 +267,19 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
   H5Awrite(this->attr_, H5T_NATIVE_FLOAT, attr_data);
   //H5Aclose(this->attr_);
 
-  // Closing all
-  H5Sclose(sphere_dataspace);
-  H5Sclose(file_space);
-  H5Sclose(mem_space);
-  close();
+    // Closing all
+    H5Sclose(sphere_dataspace);
+    H5Sclose(file_space);
+    H5Sclose(mem_space);
+    close();
+  }
+  catch (const std::exception& e)
+  {
+    // Clean up HDF5 resources on error
+    ROS_ERROR("Exception during saveMap: %s", e.what());
+    try { close(); } catch(...) {}
+    throw;
+  }
 
   return true; // Maybe function ought to return void
 }
@@ -323,22 +339,28 @@ bool Hdf5Dataset::load(map_generation::WorkSpace &ws)
 
 bool Hdf5Dataset::open()
 {
-  const char *filepath = this->path_.c_str();
-  const char *name = this->filename_.c_str();
-  char fullpath[300]; // TODO: Probably a better way to do this than hard defining the length
-  strcpy(fullpath, filepath);
-  strcat(fullpath, name);
+  std::string fullpath = this->path_ + this->filename_;
   ROS_INFO("Opening map %s", this->filename_.c_str());
-  this->file_ = H5Fopen(fullpath,  H5F_ACC_RDONLY, H5P_DEFAULT);
 
-  this->group_poses_ = H5Gopen(this->file_, "/Poses", H5P_DEFAULT);
-  this->poses_dataset_ = H5Dopen(this->group_poses_, "poses_dataset", H5P_DEFAULT);
+  try
+  {
+    this->file_ = H5Fopen(fullpath.c_str(),  H5F_ACC_RDONLY, H5P_DEFAULT);
 
-  this->group_spheres_ = H5Gopen(this->file_, "/Spheres", H5P_DEFAULT);
-  this->sphere_dataset_ = H5Dopen(this->group_spheres_, "sphere_dataset", H5P_DEFAULT);
+    this->group_poses_ = H5Gopen(this->file_, "/Poses", H5P_DEFAULT);
+    this->poses_dataset_ = H5Dopen(this->group_poses_, "poses_dataset", H5P_DEFAULT);
 
-  this->attr_ = H5Aopen(this->sphere_dataset_, "Resolution", H5P_DEFAULT);
-  herr_t ret = H5Aread(this->attr_, H5T_NATIVE_FLOAT, &this->res_);
+    this->group_spheres_ = H5Gopen(this->file_, "/Spheres", H5P_DEFAULT);
+    this->sphere_dataset_ = H5Dopen(this->group_spheres_, "sphere_dataset", H5P_DEFAULT);
+
+    this->attr_ = H5Aopen(this->sphere_dataset_, "Resolution", H5P_DEFAULT);
+    herr_t ret = H5Aread(this->attr_, H5T_NATIVE_FLOAT, &this->res_);
+  }
+  catch (const std::exception& e)
+  {
+    ROS_ERROR("Exception during open: %s", e.what());
+    try { close(); } catch(...) {}
+    throw;
+  }
 
   return true; // Maybe function ought to return void
 }
@@ -346,7 +368,7 @@ bool Hdf5Dataset::open()
 bool Hdf5Dataset::getResolution(float &resolution)
 {
   resolution = this->res_;
-  return 0;
+  return true;
 }
 
 bool Hdf5Dataset::getMultimap(MultiMap &mMap)
@@ -383,7 +405,7 @@ bool Hdf5Dataset::getMultimap(MultiMap &mMap)
     }
     count[1] = 10;
 
-    double data_out[count[0]][count[1]];
+    std::vector<double> data_out(count[0] * count[1]);
 
     status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
     hsize_t dimsm[2];
@@ -391,7 +413,7 @@ bool Hdf5Dataset::getMultimap(MultiMap &mMap)
     dimsm[1] = count[1];
     hid_t memspace;
     memspace = H5Screate_simple(RANK_OUT, dimsm, NULL);
-    status = H5Dread(this->poses_dataset_, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data_out);
+    status = H5Dread(this->poses_dataset_, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data_out.data());
 
     for(int i=0; i<count[0]; i++)
     {
@@ -399,16 +421,16 @@ bool Hdf5Dataset::getMultimap(MultiMap &mMap)
       std::vector<double> Poses(7);
       for(int j=0; j<3;j++)
       {
-        sphere_center[j] = data_out[i][j];
+        sphere_center[j] = data_out[i * count[1] + j];
         }
       for(int k=3;k<10; k++)
       {
-        Poses[k-3] = data_out[i][k];
+        Poses[k-3] = data_out[i * count[1] + k];
         }
       mMap.insert(std::make_pair(sphere_center, Poses));
       }
   }
-return 0;
+return true;
 }
 
 bool Hdf5Dataset::getSphereRI(MapVecDouble &mvec)
@@ -422,28 +444,24 @@ bool Hdf5Dataset::getSphereRI(MapVecDouble &mvec)
   offset[1] = 0;
   count[0] = dims_out[0];
   count[1] = 4;
-  double data_out[count[0]][count[1]];
+  std::vector<double> data_out(count[0] * count[1]);
   status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
   dimsm[0] = count[0];
   dimsm[1] = count[1];
   hid_t memspace;
   memspace = H5Screate_simple(RANK_OUT, dimsm, NULL);
-  status = H5Dread(this->sphere_dataset_, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data_out);
+  status = H5Dread(this->sphere_dataset_, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data_out.data());
   for (int i = 0; i < count[0]; i++)
   {
     std::vector< double > sphere_center(3);
-    double ri;
     for (int j = 0; j < 3; j++)
     {
-      sphere_center[j] = data_out[i][j];
+      sphere_center[j] = data_out[i * count[1] + j];
     }
-    for (int k = 3; k < 4; k++)
-    {
-      ri = data_out[i][k];
-    }
+    double ri = data_out[i * count[1] + 3];
     mvec.insert(std::pair< std::vector< double >, double >(sphere_center, ri));
    }
-  return 0;
+  return true;
 }
 
 bool Hdf5Dataset::getWorkspace(map_generation::WorkSpace &ws)
@@ -476,7 +494,7 @@ bool Hdf5Dataset::getWorkspace(map_generation::WorkSpace &ws)
     ws.WsSpheres.push_back(wss);
   }
   close();
-  return 0;
+  return true;
 }
 
 }

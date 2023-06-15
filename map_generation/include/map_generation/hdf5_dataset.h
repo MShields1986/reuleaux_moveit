@@ -14,7 +14,6 @@
 
 namespace reuleaux
 {
-struct stat st;
 
 class Hdf5Dataset
 {

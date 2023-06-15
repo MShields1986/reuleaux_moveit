@@ -8,6 +8,7 @@
 #include <octomap/math/Utils.h>
 #include <map_generation/WorkSpace.h>
 #include <tf/LinearMath/Quaternion.h>
+#include <memory>
 
 namespace reuleaux
 {
@@ -26,8 +27,8 @@ public:
   void getCenters(std::vector<geometry_msgs::Point>& points);
 
 private:
-  octomap::OcTree* generateBoxTree(const octomap::point3d& origin, const double resolution, const double diameter);
-  void createCenters(octomap::OcTree* tree, std::vector<geometry_msgs::Point>& centers);
+  std::unique_ptr<octomap::OcTree> generateBoxTree(const octomap::point3d& origin, const double resolution, const double diameter);
+  void createCenters(const std::unique_ptr<octomap::OcTree>& tree, std::vector<geometry_msgs::Point>& centers);
   void createPoses(const std::vector<geometry_msgs::Point>& centers, std::vector<geometry_msgs::Pose>& poses);
   void createPosesOnSphere(const geometry_msgs::Point& center, const double resolution, std::vector<geometry_msgs::Pose>& poses);
 
