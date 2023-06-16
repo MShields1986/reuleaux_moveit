@@ -8,7 +8,7 @@
     <arg name="move_group" default="manipulator"/> <!-- manipulator -->
     <arg name="planning_frame" default="base_link"/> <!-- base_link -->
     <arg name="ee_frame" default="tool0"/> <!-- tool0 -->
-    <arg name="resolution" default="0.3"/>
+    <arg name="resolution" default="0.1"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->

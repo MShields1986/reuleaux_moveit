@@ -3,7 +3,9 @@ Panels:
     Help Height: 84
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
+      Expanded:
+        - /ReachabilityMap1
+        - /ReachabilityMap1/Shape Property1
       Splitter Ratio: 0.5
     Tree Height: 308
   - Class: rviz/Help
@@ -69,121 +71,58 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          kmr_iiwa_back_left_wheel_link:
+          base:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link_inertia:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_back_right_wheel_link:
+          flange:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          forearm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_base_footprint:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_iiwa_base_link:
+          shoulder_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_base_top_link:
+          tool0:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          kmr_iiwa_front_left_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_front_right_wheel_link:
+          upper_arm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_laser_B1_link:
+          wrist_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_laser_B4_link:
+          wrist_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_link_0:
+          wrist_3_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_link_1:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_2:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_3:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_4:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_5:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_6:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_7:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_ee:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_iiwa_riser_flange_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          roller_probe_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          roller_probe_contact_frame:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          zivid_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          zivid_optical_frame:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          zivid_optical_frame_gazebo:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-        Loop Animation: true
+        Loop Animation: false
         Robot Alpha: 0.5
         Robot Color: 150; 50; 150
         Show Robot Collision: false
@@ -206,7 +145,7 @@ Visualization Manager:
         Goal State Color: 250; 128; 0
         Interactive Marker Size: 0
         Joint Violation Color: 255; 0; 255
-        Planning Group: iiwa_arm
+        Planning Group: manipulator
         Query Goal State: true
         Query Start State: false
         Show Workspace: false
@@ -229,120 +168,57 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          kmr_iiwa_back_left_wheel_link:
+          base:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link_inertia:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_back_right_wheel_link:
+          flange:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          forearm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_base_footprint:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_iiwa_base_link:
+          shoulder_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_base_top_link:
+          tool0:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          kmr_iiwa_front_left_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_front_right_wheel_link:
+          upper_arm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_laser_B1_link:
+          wrist_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_laser_B4_link:
+          wrist_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_link_0:
+          wrist_3_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_iiwa_link_1:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_2:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_3:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_4:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_5:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_6:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_7:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_iiwa_link_ee:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_iiwa_riser_flange_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          roller_probe_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          roller_probe_contact_frame:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          zivid_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          zivid_optical_frame:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          zivid_optical_frame_gazebo:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
         Robot Alpha: 0.5
         Show Robot Collision: false
         Show Robot Visual: true
@@ -350,7 +226,7 @@ Visualization Manager:
       Velocity_Scaling_Factor: 0.1
     - Class: workspace_visualization/ReachabilityMap
       Color by Reachability: true
-      Disect: Full
+      Disect: 1st_Half
       Enabled: true
       Highest Reachability Index: 100
       Lowest Reachability Index: 0
@@ -364,7 +240,7 @@ Visualization Manager:
       Shape Property:
         Alpha: 0.5
         Color: 255; 225; 102
-        Size: 0.15000000596046448
+        Size: 0.10000000149011612
       Show Poses: false
       Show Shape: true
       Topic: /reachability_map
@@ -386,7 +262,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 5.179826259613037
+      Distance: 2.9172780513763428
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -402,9 +278,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.20479783415794373
+      Pitch: 0.43979835510253906
       Target Frame: panda_link0
-      Yaw: 2.1167523860931396
+      Yaw: 1.313564419746399
     Saved: ~
 Window Geometry:
   Displays:
@@ -418,7 +294,7 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000200000000000001f30000039efc0200000006fb000000100044006900730070006c006100790073010000003d000001c5000000c900fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000208000001d30000018800ffffff000000010000016a0000039efc0200000001fb0000000a00560069006500770073000000003d0000039e000000a400ffffff000005570000039e00000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000200000000000001f30000039efc0200000006fb000000100044006900730070006c006100790073010000003d000001c5000000c900fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000208000001d30000017d00ffffff000000010000016a0000039efc0200000001fb0000000a00560069006500770073000000003d0000039e000000a400ffffff000005570000039e00000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: true
   Width: 1872
