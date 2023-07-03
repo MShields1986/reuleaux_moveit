@@ -226,7 +226,7 @@ Visualization Manager:
       Velocity_Scaling_Factor: 0.1
     - Class: workspace_visualization/ReachabilityMap
       Color by Reachability: true
-      Disect: 1st_Half
+      Disect: Full
       Enabled: true
       Highest Reachability Index: 100
       Lowest Reachability Index: 0
@@ -238,7 +238,7 @@ Visualization Manager:
       Queue Size: 10
       Shape: Sphere
       Shape Property:
-        Alpha: 0.5
+        Alpha: 0.30000001192092896
         Color: 255; 225; 102
         Size: 0.10000000149011612
       Show Poses: false
@@ -262,7 +262,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 2.9172780513763428
+      Distance: 2.793057680130005
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -270,17 +270,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.013513922691345215
-        Y: 0.012498676776885986
+        X: 0.6133553981781006
+        Y: 0.46085935831069946
         Z: 2.384185791015625e-07
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.43979835510253906
+      Pitch: 0.34479835629463196
       Target Frame: panda_link0
-      Yaw: 1.313564419746399
+      Yaw: 0.803565502166748
     Saved: ~
 Window Geometry:
   Displays:
