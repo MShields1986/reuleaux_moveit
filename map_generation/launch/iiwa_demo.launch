@@ -5,10 +5,12 @@
     <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
 
     <arg name="moveit_pkg" default="kmriiwa_tooled_moveit_config"/>
-    <arg name="move_group" default="zivid_optical"/> <!-- roller_probe / zivid_optical / zivid_optical_gazebo / iiwa_arm -->
-    <arg name="planning_frame" default="kmr_iiwa_base_footprint"/> <!-- kmr_iiwa_base_footprint / kmr_iiwa_link_0 -->
-    <arg name="ee_frame" default="zivid_optical_frame"/> <!-- zivid_optical_frame / roller_probe_contact_frame -->
-    <arg name="resolution" default="0.1"/>
+    <arg name="move_group" default="rs_optical"/> <!--  rs_optical / ec_contact -->
+    <arg name="planning_frame" default="kmr_base_footprint"/> <!-- kmr_base_footprint / iiwa_link_0 -->
+    <arg name="ee_frame" default="rs_camera_1_color_optical_frame"/> <!-- rs_camera_1_color_optical_frame / lf_ec_probe_contact -->
+
+    <!-- <arg name="resolution" default="0.1"/> -->
+    <arg name="resolution" default="0.5"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
