@@ -80,7 +80,7 @@ std::string getRobotName(const std::string pkg_name)
 std::string createName( const std::string &pkg_name, const std::string &group_name, double &res)
 {
   std::string robot_name = getRobotName(pkg_name);
-  std::string name = str(boost::format("%s_%s_%d_reachability.h5") %robot_name %group_name % res);
+  std::string name = str(boost::format("%s_%s_%g_reachability.h5") %robot_name %group_name % res);
   return name;
 }
 

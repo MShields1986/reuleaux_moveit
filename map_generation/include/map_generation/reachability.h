@@ -1,7 +1,7 @@
 #ifndef REACHABILITY_H
 #define REACHABILITY_H
 #include <ros/ros.h>
-#include <map_generation/WorkSpace.h> // File is missing from includes...
+#include <map_generation/WorkSpace.h>
 #include <map_generation/utility.h>
 #include <Eigen/Eigen>
 #include <eigen_conversions/eigen_msg.h>
@@ -31,6 +31,7 @@ public:
 
 private:
   std::string group_name_;
+  std::string ee_frame_;
   bool check_collision_;
   geometry_msgs::PoseStamped makePoseStamped(const geometry_msgs::Pose& pose_in);
   moveit_msgs::PositionIKRequest makeServiceRequest(const geometry_msgs::Pose &pose_in);

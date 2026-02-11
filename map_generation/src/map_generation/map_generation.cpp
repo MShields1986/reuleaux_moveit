@@ -2,12 +2,12 @@
 #include <string>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <memory>
 
 
 namespace reuleaux
 {
 mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_name,
-                            // const std::string& planning_frame,
                             const std::string& ee_frame,
                             const std::string &path, const std::string &filename,
                             const std::string& pkg_name, const double &resolution,
@@ -15,7 +15,6 @@ mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_nam
 {
   nh_ = node;
   group_name_ = group_name;
-  // planning_frame_ = planning_frame;
   ee_frame_ = ee_frame;
   path_ = path;
   filename_ = filename;
@@ -48,23 +47,20 @@ mapGeneration::mapGeneration(ros::NodeHandle& node, const std::string &group_nam
 void mapGeneration::discretizeWorkspace(geometry_msgs::Pose& pose)
 {
   ROS_INFO("Discretizing workspace with resolution %f and radius %f", resolution_, radius_);
-  reuleaux::Discretization* disc(new reuleaux::Discretization(pose, resolution_, radius_));
+  std::unique_ptr<reuleaux::Discretization> disc(new reuleaux::Discretization(pose, resolution_, radius_));
   disc->discretize();
   disc->getInitialWorkspace(init_ws_);
   reuleaux::getPoseAndSphereSize(init_ws_, init_sp_size_, init_pose_size_);
   ROS_INFO("Initial workspace has %d spheres and %d poses", init_sp_size_, init_pose_size_);
-  delete disc;
 }
 
 void mapGeneration::filterWorkspace()
 {
-  reuleaux::ReachAbility* reach(new reuleaux::ReachAbility(nh_, group_name_, ee_frame_, check_collision_));
+  std::unique_ptr<reuleaux::ReachAbility> reach(new reuleaux::ReachAbility(nh_, group_name_, ee_frame_, check_collision_));
   reach->setInitialWorkspace(init_ws_);
   reach->createReachableWorkspace();
   reach->getFinalWorkspace(filtered_ws_);
-  static int sp_size, pose_size;
   reuleaux::getPoseAndSphereSize(filtered_ws_, final_sp_size_, final_pose_size_);
-  delete reach;
 }
 
 void mapGeneration::saveWorkspace()
@@ -79,7 +75,7 @@ void mapGeneration::saveWorkspace()
     filename = filename_;
   name = path_+filename;
 
-  reuleaux::Hdf5Dataset* h5(new reuleaux::Hdf5Dataset(name));
+  std::unique_ptr<reuleaux::Hdf5Dataset> h5(new reuleaux::Hdf5Dataset(name));
   h5->save(filtered_ws_);
   ROS_INFO("%s saved to %s", filename.c_str(), path_.c_str());
  }

@@ -1,15 +1,26 @@
 #include <map_generation/reachability.h>
+#include <stdexcept>
 
 namespace reuleaux
 {
 ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
                            const std::string& ee_frame, bool check_collision)
   :group_name_(group_name),
-  // ee_frame_(ee_frame),
+  ee_frame_(ee_frame),
   check_collision_(check_collision)
 {
   nh_ = node;
   client_ = nh_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
+
+  // Wait for IK service to be available
+  ROS_INFO("Waiting for IK service...");
+  if (!client_.waitForExistence(ros::Duration(10.0)))
+  {
+    ROS_ERROR("IK service /compute_ik not available after 10 seconds");
+    throw std::runtime_error("IK service not available");
+  }
+  ROS_INFO("IK service is available");
+
   group_.reset(new moveit::planning_interface::MoveGroupInterface(group_name_));
   planning_frame_ = group_->getPlanningFrame();
 
@@ -45,6 +56,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    moveit_msgs::PositionIKRequest req;
    geometry_msgs::PoseStamped pose_st = makePoseStamped(pose_in);
    req.group_name = group_name_;
+   req.ik_link_name = ee_frame_;
    req.avoid_collisions = check_collision_;
    // req.attempts = 10;
    req.timeout.fromSec(0.1);
@@ -73,7 +85,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    Eigen::Affine3d reach_pose_tf;
    tf::poseMsgToEigen(pose_in, reach_pose_tf);
    //transform the task pose to base pose at center. Now we can get Ik for this pose
-   tf::poseEigenToMsg(reach_pose_tf * base_pose_to_world_tf, pose_out);
+   tf::poseEigenToMsg(base_pose_to_world_tf * reach_pose_tf, pose_out);
  }
 
  bool ReachAbility::ik(const moveit_msgs::PositionIKRequest& req, moveit_msgs::RobotState &robot_state)
@@ -92,7 +104,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    else
    {
      ROS_ERROR("Failed to call IK service");
-           return 1;
+     return false;
    }
  }
 
@@ -118,10 +130,15 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    {
      std::vector<std::string> full_names = robot_state.joint_state.name;
      joint_names = group_->getJointNames();
-     for(int i=0;i<joint_names.size();++i)
+     for(size_t i=0;i<joint_names.size();++i)
      {
-       int position = std::find(full_names.begin(), full_names.end(), joint_names[i]) - full_names.begin();
-       joint_solution.push_back(robot_state.joint_state.position[position]);
+       auto it = std::find(full_names.begin(), full_names.end(), joint_names[i]);
+       if (it == full_names.end())
+       {
+         ROS_ERROR("Joint '%s' not found in IK solution", joint_names[i].c_str());
+         return false;
+       }
+       joint_solution.push_back(robot_state.joint_state.position[it - full_names.begin()]);
      }
      return true;
    }
@@ -151,10 +168,15 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    {
      std::vector<std::string> full_names = robot_state.joint_state.name;
      joint_names = group_->getJointNames();
-     for(int i=0;i<joint_names.size();++i)
+     for(size_t i=0;i<joint_names.size();++i)
      {
-       int position = std::find(full_names.begin(), full_names.end(), joint_names[i]) - full_names.begin();
-       joint_solution.push_back(robot_state.joint_state.position[position]);
+       auto it = std::find(full_names.begin(), full_names.end(), joint_names[i]);
+       if (it == full_names.end())
+       {
+         ROS_ERROR("Joint '%s' not found in IK solution", joint_names[i].c_str());
+         return false;
+       }
+       joint_solution.push_back(robot_state.joint_state.position[it - full_names.begin()]);
      }
      return true;
    }
@@ -201,7 +223,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    for(reuleaux::MultiMap::iterator it=ws_map.begin(); it!=ws_map.end();++it)
    {
      std::vector<double> sp_coord = it->first;
-     float d = float(ws_map.count(sp_coord)) / (pose_size_ /sphere_size_) * 100;
+     float d = float(ws_map.count(sp_coord)) / (float(pose_size_) / float(sphere_size_)) * 100;
      sp_map.insert(std::make_pair(it->first, double(d)));
    }
    for (reuleaux::MapVecDouble::iterator it = sp_map.begin(); it != sp_map.end(); ++it)
