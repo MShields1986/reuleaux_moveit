@@ -1,17 +1,34 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="load_manipulator" default="true"/>   <!-- true = reachability | false = inverse reachability -->
-    <arg name="create_map" default="true"/>         <!-- true = create map | false = load map -->
-    <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
+    <!-- true = reachability | false = inverse reachability -->
+    <arg name="load_manipulator" default="true"/>
+    <!-- true = create map | false = load map -->
+    <arg name="create_map" default="true"/>
+    <!-- requires load_manipulator:=false -->
+    <arg name="base_placement" default="false"/>
 
-    <arg name="moveit_pkg" default="lmc_rpl_ur5_move_it_config"/>
-    <arg name="move_group" default="ur5_arm"/> <!-- manipulator -->
-    <arg name="planning_frame" default="rpl_origin"/> <!-- rpl_origin -->
-    <arg name="ee_frame" default="ur5_tool0"/> <!-- ur5_tool0 -->
-    <arg name="resolution" default="0.1"/>
-    <arg name="num_ik_threads" default="4"/>
-    <arg name="num_ik_attempts" default="5"/>
+    <arg name="moveit_pkg" default="raico_robot_moveit_config"/>
+
+    <!--  optical / ut -->
+    <arg name="move_group" default="ut"/>
+    <!-- kmr_base_footprint / iiwa_link_0 -->
+    <arg name="planning_frame" default="scout_footprint"/>
+    <!-- kinova_camera_color_frame / ut_probe_contact_frame -->
+    <arg name="ee_frame" default="ut_probe_contact_frame"/>
+
+    <arg name="num_ik_threads" default="20"/> <!-- Ignored if use_service_ik -->
+    <arg name="num_ik_attempts" default="1"/> <!-- Ignored if use_service_ik -->
     <arg name="use_service_ik" default="false"/>
+
+    <!-- 20 cores processes around 240 spheres / min at 1 attempt -->
+    <!-- 288670 spheres // 20 hrs -->
+    <arg name="resolution" default="0.05"/>
+    <!-- 35200 spheres // 2.4 hrs -->
+    <!-- <arg name="resolution" default="0.1"/> -->
+    <!-- 4400 spheres // 22 mins -->
+    <!-- <arg name="resolution" default="0.2"/> -->
+    <!-- <arg name="resolution" default="0.25"/> -->
+    <!-- <arg name="resolution" default="0.5"/> -->
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
@@ -26,7 +43,7 @@
               <param name="ee_frame" value="$(arg ee_frame)"/>
               <param name="pkg_name" value="$(arg moveit_pkg)"/>
               <param name="resolution" value="$(arg resolution)"/>
-              <param name="radius" value="1"/>
+              <param name="radius" value="2.0"/>
               <param name="num_ik_threads" value="$(arg num_ik_threads)"/>
               <param name="num_ik_attempts" value="$(arg num_ik_attempts)"/>
               <param name="use_service_ik" value="$(arg use_service_ik)"/>
@@ -37,11 +54,11 @@
         </group>
 
 
-
         <group unless="$(arg create_map)">
-            <group unless="$(arg base_placement)">   <!-- Load and Visualise Reachability Map -->
+            <!-- Load and Visualise Reachability Map -->
+            <group unless="$(arg base_placement)">
                 <!-- Use the original Reuleaux package's map loader -->
-                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/_$(arg move_group)_$(arg resolution)_reachability.h5" />
+                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/raico_robot_$(arg move_group)_$(arg resolution)_reachability.h5" />
 
                 <!-- Reuleaux's load map doesn't use the same frame as the frame the map was created in for some reason, it forces base_link and isn't parameterised currently, so we need a static tf from the planning frame to the base_link frame -->
                 <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />
@@ -49,13 +66,13 @@
             </group>
 
 
-            <group if="$(arg base_placement)">   <!-- Load requirements for the base placement plugin -->
+            <!-- Load requirements for the base placement plugin -->
+            <group if="$(arg base_placement)">
                 <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />
                 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_generation)/config/base_placement_template.rviz" />
             </group>
         </group>
     </group>
-
 
 
     <!-- If we are not using the manipulator then we are loading an inverse reachability map -->

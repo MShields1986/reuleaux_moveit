@@ -51,6 +51,9 @@ private:
    int init_sp_size_, final_sp_size_;
    int init_pose_size_, final_pose_size_;
 
+   bool saved_incrementally_ = false;
+   std::string saved_filename_;
+
 };
 
 

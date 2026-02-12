@@ -1,5 +1,12 @@
 #include <map_generation/reachability.h>
 #include <stdexcept>
+#include <atomic>
+#include <chrono>
+#include <ctime>
+#include <thread>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace reuleaux
 {
@@ -38,6 +45,14 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
   ROS_INFO_STREAM("Current end effector frame: " << current_ee_frame_);
   ROS_INFO("-------------------------------------------------");
 
+  robot_model_loader_.reset(new robot_model_loader::RobotModelLoader("robot_description"));
+  robot_model_ = robot_model_loader_->getModel();
+  if (!robot_model_)
+    throw std::runtime_error("Failed to load robot model from robot_description");
+  joint_model_group_ = robot_model_->getJointModelGroup(group_name_);
+  if (!joint_model_group_)
+    throw std::runtime_error("Failed to get joint model group: " + group_name_);
+
   final_ws_.WsSpheres.clear();
   init_ws_.WsSpheres.clear();
 
@@ -58,7 +73,6 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    req.group_name = group_name_;
    req.ik_link_name = ee_frame_;
    req.avoid_collisions = check_collision_;
-   // req.attempts = 10;
    req.timeout.fromSec(0.1);
    req.pose_stamped = pose_st;
    return req;
@@ -129,7 +143,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    if(ik(req, robot_state))
    {
      std::vector<std::string> full_names = robot_state.joint_state.name;
-     joint_names = group_->getJointNames();
+     joint_names = group_->getVariableNames();
      for(size_t i=0;i<joint_names.size();++i)
      {
        auto it = std::find(full_names.begin(), full_names.end(), joint_names[i]);
@@ -167,7 +181,7 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    if(ik(req, robot_state))
    {
      std::vector<std::string> full_names = robot_state.joint_state.name;
-     joint_names = group_->getJointNames();
+     joint_names = group_->getVariableNames();
      for(size_t i=0;i<joint_names.size();++i)
      {
        auto it = std::find(full_names.begin(), full_names.end(), joint_names[i]);
@@ -195,61 +209,266 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
 
  bool ReachAbility::createReachability(const map_generation::WorkSpace& ws)
  {
-   reuleaux::MultiMap ws_map;
-   reuleaux::MapVecDouble sp_map;
    int sp_size = sphere_size_;
-   for(int i=0;i<sp_size;++i)
-   {
-     ROS_INFO("Processing sphere: %d / %d", i+1,sp_size);
-     std::vector<double> sp_vec;
-     reuleaux::pointToVector(ws.WsSpheres[i].point, sp_vec);
-     for(int j=0;j<ws.WsSpheres[i].poses.size();++j)
+
+   bool use_service_ik = false;
+   nh_.param<bool>("use_service_ik", use_service_ik, use_service_ik);
+
+   // Per-sphere result storage: index by sphere so threads write to disjoint entries.
+   // With incremental saving, only one batch of sphere_maps is live at a time so
+   // peak memory stays bounded regardless of total map size.
+   std::vector<reuleaux::MultiMap> sphere_maps(sp_size);
+   const auto start_time = std::chrono::steady_clock::now();
+
+   // 20 checkpoints (every 5%) gives ~2 h intervals for a 0.05-resolution map.
+   const int batch_size = std::max(1, sp_size / 20);
+
+   auto format_duration = [](double seconds) -> std::string {
+     int h = static_cast<int>(seconds) / 3600;
+     int m = (static_cast<int>(seconds) % 3600) / 60;
+     int s = static_cast<int>(seconds) % 60;
+     char buf[32];
+     if (h > 0)
+       snprintf(buf, sizeof(buf), "%dh %dm %ds", h, m, s);
+     else if (m > 0)
+       snprintf(buf, sizeof(buf), "%dm %ds", m, s);
+     else
+       snprintf(buf, sizeof(buf), "%ds", s);
+     return std::string(buf);
+   };
+
+   auto log_progress = [&](int done) {
+     double elapsed = std::chrono::duration<double>(
+       std::chrono::steady_clock::now() - start_time).count();
+     if (done == sp_size)
      {
-       moveit_msgs::RobotState state;
-       geometry_msgs::Pose reach_pose= ws.WsSpheres[i].poses[j];
-       bool is_reachable = getIKSolution(reach_pose, state);
-       if(is_reachable)
+       ROS_INFO("Processed %d / %d spheres (100%%) - completed in %s",
+                done, sp_size, format_duration(elapsed).c_str());
+     }
+     else
+     {
+       double eta = (elapsed / done) * (sp_size - done);
+       auto eta_wall = std::chrono::system_clock::now() +
+                       std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                         std::chrono::duration<double>(eta));
+       std::time_t eta_t = std::chrono::system_clock::to_time_t(eta_wall);
+       struct tm eta_tm;
+       localtime_r(&eta_t, &eta_tm);
+       char time_buf[16];
+       std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &eta_tm);
+       ROS_INFO("Processed %d / %d spheres (%.0f%%) - ETA %s",
+                done, sp_size, 100.0 * done / sp_size, time_buf);
+     }
+   };
+
+   // Flush one completed batch: call write_callback_ then free its memory.
+   // When no callback is registered sphere_maps entries are kept for the
+   // fallback in-memory final_ws_ construction below.
+   auto flush_batch = [&](int b_start, int b_end) {
+     if (write_callback_)
+     {
+       write_callback_(sphere_maps, b_start, b_end, pose_size_, sphere_size_);
+       for (int i = b_start; i < b_end; ++i)
+         reuleaux::MultiMap().swap(sphere_maps[i]);
+     }
+   };
+
+   if (use_service_ik)
+   {
+     ROS_INFO("Processing %d spheres via /compute_ik service (serial, batch_size=%d)",
+              sp_size, batch_size);
+
+     for (int batch_start = 0; batch_start < sp_size; batch_start += batch_size)
+     {
+       int batch_end = std::min(batch_start + batch_size, sp_size);
+       for (int i = batch_start; i < batch_end; ++i)
        {
-         ROS_DEBUG("SUCCESS: Pose was reached!");
-         std::vector<double> sp_pose;
-         reuleaux::poseToVector(reach_pose, sp_pose);
-         ws_map.insert(std::make_pair(sp_vec, sp_pose));
-       } else {
-         ROS_DEBUG("FAIL: Pose was not reached");
+         std::vector<double> sp_vec;
+         reuleaux::pointToVector(ws.WsSpheres[i].point, sp_vec);
+         for (int j = 0; j < static_cast<int>(ws.WsSpheres[i].poses.size()); ++j)
+         {
+           moveit_msgs::GetPositionIK local_srv;
+           local_srv.request.ik_request = makeServiceRequest(ws.WsSpheres[i].poses[j]);
+           if (client_.call(local_srv) && local_srv.response.error_code.val == 1)
+           {
+             std::vector<double> sp_pose;
+             reuleaux::poseToVector(ws.WsSpheres[i].poses[j], sp_pose);
+             sphere_maps[i].insert(std::make_pair(sp_vec, sp_pose));
+           }
+         }
        }
-       ROS_DEBUG("===============================");
+       log_progress(batch_end);
+       flush_batch(batch_start, batch_end);
      }
    }
-   for(reuleaux::MultiMap::iterator it=ws_map.begin(); it!=ws_map.end();++it)
+   else
    {
-     std::vector<double> sp_coord = it->first;
-     float d = float(ws_map.count(sp_coord)) / (float(pose_size_) / float(sphere_size_)) * 100;
-     sp_map.insert(std::make_pair(it->first, double(d)));
+     // Determine thread count: default to hardware concurrency, overridable via num_ik_threads ROS param
+     int num_threads = static_cast<int>(std::thread::hardware_concurrency());
+     if (num_threads <= 0) num_threads = 4;
+     nh_.param<int>("num_ik_threads", num_threads, num_threads);
+     num_threads = std::min(num_threads, sp_size);
+
+     // Number of IK attempts per pose: on collision, retry with a random seed to exploit redundancy.
+     int num_ik_attempts = 5;
+     nh_.param<int>("num_ik_attempts", num_ik_attempts, num_ik_attempts);
+
+     ROS_INFO("Processing %d spheres using %d threads (%d IK attempts per pose, batch_size=%d)",
+              sp_size, num_threads, num_ik_attempts, batch_size);
+
+     // Load per-thread robot models once, before the batch loop.
+     ROS_INFO("Loading per-thread robot models (%d threads) in parallel...", num_threads);
+     std::vector<robot_model_loader::RobotModelLoaderPtr> thread_loaders(num_threads);
+     std::vector<robot_model::RobotModelConstPtr>         thread_models(num_threads);
+     std::vector<const robot_model::JointModelGroup*>     thread_jmgs(num_threads);
+     std::vector<robot_state::RobotStatePtr>              thread_states(num_threads);
+     std::vector<planning_scene::PlanningScenePtr>        thread_scenes(num_threads);
+     std::vector<std::string>                             load_errors(num_threads);
+
+     {
+       std::vector<std::thread> load_threads(num_threads);
+       for (int t = 0; t < num_threads; ++t)
+       {
+         load_threads[t] = std::thread(
+           [t, &thread_loaders, &thread_models, &thread_jmgs,
+            &thread_states, &thread_scenes, &load_errors, this]()
+           {
+             try
+             {
+               thread_loaders[t].reset(new robot_model_loader::RobotModelLoader("robot_description"));
+               thread_models[t] = thread_loaders[t]->getModel();
+               if (!thread_models[t]) { load_errors[t] = "getModel() returned null"; return; }
+               thread_jmgs[t] = thread_models[t]->getJointModelGroup(group_name_);
+               if (!thread_jmgs[t]) { load_errors[t] = "getJointModelGroup() returned null"; return; }
+               thread_states[t].reset(new robot_state::RobotState(thread_models[t]));
+               thread_states[t]->setToDefaultValues();
+               thread_scenes[t].reset(new planning_scene::PlanningScene(thread_models[t]));
+             }
+             catch (const std::exception& e) { load_errors[t] = e.what(); }
+           });
+       }
+       for (auto& th : load_threads) th.join();
+     }
+
+     for (int t = 0; t < num_threads; ++t)
+       if (!load_errors[t].empty())
+         throw std::runtime_error("Robot model load failed for thread " +
+                                  std::to_string(t) + ": " + load_errors[t]);
+     ROS_INFO("Per-thread robot models loaded.");
+
+     // Process sphere batches sequentially; within each batch use parallel IK.
+     // After each batch the results are flushed to disk and freed so that
+     // sphere_maps never holds more than one batch in memory at a time.
+     for (int batch_start = 0; batch_start < sp_size; batch_start += batch_size)
+     {
+       int batch_end = std::min(batch_start + batch_size, sp_size);
+
+       #pragma omp parallel for num_threads(num_threads) schedule(dynamic)
+       for (int i = batch_start; i < batch_end; ++i)
+       {
+ #ifdef _OPENMP
+         int tid = omp_get_thread_num();
+ #else
+         int tid = 0;
+ #endif
+         std::vector<double> sp_vec;
+         reuleaux::pointToVector(ws.WsSpheres[i].point, sp_vec);
+
+         robot_state::RobotState& state = *thread_states[tid];
+         planning_scene::PlanningScene& scene = *thread_scenes[tid];
+
+         robot_state::GroupStateValidityCallbackFn constraint_fn;
+         if (check_collision_)
+         {
+           constraint_fn = [&scene](robot_state::RobotState* rs,
+                                    const robot_model::JointModelGroup* jmg,
+                                    const double* joint_values)
+           {
+             rs->setJointGroupPositions(jmg, joint_values);
+             rs->update();
+             collision_detection::CollisionRequest col_req;
+             collision_detection::CollisionResult col_res;
+             scene.checkSelfCollision(col_req, col_res, *rs);
+             return !col_res.collision;
+           };
+         }
+
+         for (int j = 0; j < static_cast<int>(ws.WsSpheres[i].poses.size()); ++j)
+         {
+           const geometry_msgs::Pose& reach_pose = ws.WsSpheres[i].poses[j];
+
+           std::vector<double> warm_seed;
+           state.copyJointGroupPositions(thread_jmgs[tid], warm_seed);
+
+           bool found_valid = false;
+           for (int attempt = 0; attempt < num_ik_attempts && !found_valid; ++attempt)
+           {
+             if (attempt > 0)
+               state.setToRandomPositions(thread_jmgs[tid]);
+
+             if (state.setFromIK(thread_jmgs[tid], reach_pose, ee_frame_, 0.1, constraint_fn))
+             {
+               std::vector<double> sp_pose;
+               reuleaux::poseToVector(reach_pose, sp_pose);
+               sphere_maps[i].insert(std::make_pair(sp_vec, sp_pose));
+               found_valid = true;
+             }
+           }
+
+           if (!found_valid)
+             state.setJointGroupPositions(thread_jmgs[tid], warm_seed);
+         }
+       } // end omp parallel for
+
+       log_progress(batch_end);
+       flush_batch(batch_start, batch_end);
+     }
    }
-   for (reuleaux::MapVecDouble::iterator it = sp_map.begin(); it != sp_map.end(); ++it)
+
+   // Save the resolution before we free init_ws_ below.
+   const double saved_resolution = init_ws_.resolution;
+
+   // Free init_ws_ (no longer needed after the parallel IK pass) to reclaim
+   // ~1.5 GB before the memory-intensive final_ws_ construction below.
+   { map_generation::WorkSpace empty; std::swap(init_ws_, empty); }
+
+   // Build final_ws_ directly from the per-sphere result maps, freeing each
+   // entry as we go.  The old code merged all sphere_maps into a single
+   // ws_map first, which duplicated the entire dataset (~5-8 GB extra) and
+   // caused an OOM crash on large maps.
+   const float avg_poses_per_sphere = (sphere_size_ > 0)
+     ? float(pose_size_) / float(sphere_size_) : 1.0f;
+
+   for (int i = 0; i < sp_size; ++i)
    {
+     if (sphere_maps[i].empty()) continue;
+
      map_generation::WsSphere wss;
-     wss.point.x = (it->first)[0];
-     wss.point.y = (it->first)[1];
-     wss.point.z = (it->first)[2];
-     wss.ri = it->second;
-     for (MultiMap::iterator it1 = ws_map.lower_bound(it->first); it1 != ws_map.upper_bound(it->first); ++it1)
+     const std::vector<double>& sp_coord = sphere_maps[i].begin()->first;
+     wss.point.x = sp_coord[0];
+     wss.point.y = sp_coord[1];
+     wss.point.z = sp_coord[2];
+     wss.ri = double(float(sphere_maps[i].size()) / avg_poses_per_sphere * 100.0f);
+
+     for (auto& entry : sphere_maps[i])
      {
        geometry_msgs::Pose pp;
-       pp.position.x = (it1->second)[0];
-       pp.position.y = (it1->second)[1];
-       pp.position.z = (it1->second)[2];
-       pp.orientation.x = (it1->second)[3];
-       pp.orientation.y = (it1->second)[4];
-       pp.orientation.z = (it1->second)[5];
-       pp.orientation.w = (it1->second)[6];
+       pp.position.x    = entry.second[0];
+       pp.position.y    = entry.second[1];
+       pp.position.z    = entry.second[2];
+       pp.orientation.x = entry.second[3];
+       pp.orientation.y = entry.second[4];
+       pp.orientation.z = entry.second[5];
+       pp.orientation.w = entry.second[6];
        wss.poses.push_back(pp);
      }
-   final_ws_.WsSpheres.push_back(wss);
-   }
-   final_ws_.resolution = init_ws_.resolution;
+     final_ws_.WsSpheres.push_back(wss);
 
-   // Added as there was no return from this function, not sure if there ought to be a false case...
+     // Free this sphere's data immediately to keep peak memory low.
+     reuleaux::MultiMap().swap(sphere_maps[i]);
+   }
+   final_ws_.resolution = saved_resolution;
+
    return true;
  }
 }

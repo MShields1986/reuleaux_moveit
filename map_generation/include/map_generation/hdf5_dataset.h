@@ -23,6 +23,15 @@ public:
   bool save(const map_generation::WorkSpace& ws);
   bool load(map_generation::WorkSpace& ws);
 
+  // Streaming write interface: openForWrite → appendSphereBatch (×N) → finalizeWrite.
+  // Writes sphere results directly to disk in batches so peak RAM is bounded to
+  // one batch at a time rather than the full dataset.
+  void openForWrite();
+  void appendSphereBatch(const reuleaux::VecVecDouble& pose_reach,
+                         const reuleaux::VecVecDouble& spheres,
+                         const reuleaux::VecDouble& ri);
+  void finalizeWrite(float resolution);
+
 
 
 private:
@@ -50,6 +59,10 @@ private:
   map_generation::WorkSpace ws_;
   reuleaux::MultiMap mMap_;
   reuleaux::MapVecDouble mvec_;
+
+  // State for streaming writes
+  hsize_t stream_poses_written_;
+  hsize_t stream_spheres_written_;
 
 
 };
