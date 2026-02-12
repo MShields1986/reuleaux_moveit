@@ -2,6 +2,9 @@
 <launch>
     <!--set you robot's moveit pkg here-->
     <arg name = "moveit_pkg" default="ur5_moveit_config"/>
+    <arg name="num_ik_threads" default="4"/>
+    <arg name="num_ik_attempts" default="5"/>
+    <arg name="use_service_ik" default="false"/>
     <!--Launch moveit required pkgs for your robot-->
 
     <include file="$(find map_generation)/launch/moveit_pkgs.launch">
@@ -15,6 +18,9 @@
       <param name="pkg_name" value="$(arg moveit_pkg)"/>
       <param name="resolution" value="0.5" />
       <param name="radius" value="1" />
+      <param name="num_ik_threads" value="$(arg num_ik_threads)"/>
+      <param name="num_ik_attempts" value="$(arg num_ik_attempts)"/>
+      <param name="use_service_ik" value="$(arg use_service_ik)"/>
       <param name="check_collision" value="true"/>
       <param name="path" value="$(find map_generation)/maps/" />
       <param name="filename" value="default" />

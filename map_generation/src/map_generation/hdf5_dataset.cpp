@@ -141,7 +141,7 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
   // Create Dataset Property list
   hid_t plist = H5Pcreate(H5P_DATASET_CREATE);
   H5Pset_layout(plist, H5D_CHUNKED);
-  hsize_t chunk_dims[ndims] = {chunk_size, ncols};
+  hsize_t chunk_dims[ndims] = {static_cast<hsize_t>(chunk_size), ncols};
   H5Pset_chunk(plist, ndims, chunk_dims);
 
   // Create the datset
@@ -180,7 +180,7 @@ bool Hdf5Dataset::saveMap(const VecVecDouble &pose_reach, const VecVecDouble &sp
   // Selecting hyperslab on the dataset
   file_space = H5Dget_space(this->poses_dataset_);
   hsize_t start[2] = {0, 0};
-  hsize_t count[2] = {chunk_size, ncols};
+  hsize_t count[2] = {static_cast<hsize_t>(chunk_size), ncols};
   H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
 
   // Writing buffer to the dataset
@@ -328,6 +328,145 @@ bool Hdf5Dataset::save(const map_generation::WorkSpace &ws)
   saveWorkspaceToMap(ws_);
 
   return true; // Maybe function ought to return void
+}
+
+void Hdf5Dataset::openForWrite()
+{
+  if (!checkPath(this->path_))
+    createPath(this->path_);
+
+  std::string fullpath = this->path_ + this->filename_;
+  ROS_INFO("Opening %s for incremental streaming write", this->filename_.c_str());
+
+  this->file_ = H5Fcreate(fullpath.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+  if (this->file_ < 0)
+    throw std::runtime_error("Failed to create HDF5 file: " + fullpath);
+
+  this->group_poses_   = H5Gcreate(this->file_, "/Poses",   H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  this->group_spheres_ = H5Gcreate(this->file_, "/Spheres", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  // Poses dataset: (0 x 10) floats, extendable along axis 0
+  {
+    const hsize_t ndims = 2;
+    hsize_t dims[2]     = {0, 10};
+    hsize_t max_dims[2] = {H5S_UNLIMITED, 10};
+    hid_t fspace = H5Screate_simple(ndims, dims, max_dims);
+    hid_t plist  = H5Pcreate(H5P_DATASET_CREATE);
+    H5Pset_layout(plist, H5D_CHUNKED);
+    hsize_t chunk[2] = {4096, 10};
+    H5Pset_chunk(plist, ndims, chunk);
+    this->poses_dataset_ = H5Dcreate(this->group_poses_, "poses_dataset",
+                                     H5T_NATIVE_FLOAT, fspace,
+                                     H5P_DEFAULT, plist, H5P_DEFAULT);
+    H5Pclose(plist);
+    H5Sclose(fspace);
+  }
+
+  // Sphere dataset: (0 x 4) doubles, extendable along axis 0
+  {
+    const hsize_t ndims = 2;
+    hsize_t dims[2]     = {0, 4};
+    hsize_t max_dims[2] = {H5S_UNLIMITED, 4};
+    hid_t fspace = H5Screate_simple(ndims, dims, max_dims);
+    hid_t plist  = H5Pcreate(H5P_DATASET_CREATE);
+    H5Pset_layout(plist, H5D_CHUNKED);
+    hsize_t chunk[2] = {4096, 4};
+    H5Pset_chunk(plist, ndims, chunk);
+    this->sphere_dataset_ = H5Dcreate(this->group_spheres_, "sphere_dataset",
+                                      H5T_NATIVE_DOUBLE, fspace,
+                                      H5P_DEFAULT, plist, H5P_DEFAULT);
+    H5Pclose(plist);
+    H5Sclose(fspace);
+  }
+
+  stream_poses_written_   = 0;
+  stream_spheres_written_ = 0;
+}
+
+void Hdf5Dataset::appendSphereBatch(const reuleaux::VecVecDouble& pose_reach,
+                                    const reuleaux::VecVecDouble& spheres,
+                                    const reuleaux::VecDouble& ri)
+{
+  if (pose_reach.empty()) return;
+
+  const hsize_t ndims     = 2;
+  const hsize_t new_poses = static_cast<hsize_t>(pose_reach.size());
+  const hsize_t new_sph   = static_cast<hsize_t>(spheres.size());
+
+  // --- Extend and write pose rows ---
+  {
+    hsize_t new_total[2] = {stream_poses_written_ + new_poses, 10};
+    H5Dset_extent(this->poses_dataset_, new_total);
+
+    hid_t fspace = H5Dget_space(this->poses_dataset_);
+    hsize_t start[2] = {stream_poses_written_, 0};
+    hsize_t count[2] = {new_poses, 10};
+    H5Sselect_hyperslab(fspace, H5S_SELECT_SET, start, NULL, count, NULL);
+
+    std::vector<float> buf(new_poses * 10);
+    for (hsize_t i = 0; i < new_poses; ++i)
+      for (hsize_t j = 0; j < 10; ++j)
+        buf[i * 10 + j] = static_cast<float>(pose_reach[i][j]);
+
+    hid_t mspace = H5Screate_simple(ndims, count, NULL);
+    H5Dwrite(this->poses_dataset_, H5T_NATIVE_FLOAT, mspace, fspace, H5P_DEFAULT, buf.data());
+    H5Sclose(mspace);
+    H5Sclose(fspace);
+    stream_poses_written_ += new_poses;
+  }
+
+  // --- Extend and write sphere rows ---
+  if (new_sph > 0)
+  {
+    hsize_t new_total[2] = {stream_spheres_written_ + new_sph, 4};
+    H5Dset_extent(this->sphere_dataset_, new_total);
+
+    hid_t fspace = H5Dget_space(this->sphere_dataset_);
+    hsize_t start[2] = {stream_spheres_written_, 0};
+    hsize_t count[2] = {new_sph, 4};
+    H5Sselect_hyperslab(fspace, H5S_SELECT_SET, start, NULL, count, NULL);
+
+    std::vector<double> buf(new_sph * 4);
+    for (hsize_t i = 0; i < new_sph; ++i)
+    {
+      buf[i * 4 + 0] = spheres[i][0];
+      buf[i * 4 + 1] = spheres[i][1];
+      buf[i * 4 + 2] = spheres[i][2];
+      buf[i * 4 + 3] = ri[i];
+    }
+
+    hid_t mspace = H5Screate_simple(ndims, count, NULL);
+    H5Dwrite(this->sphere_dataset_, H5T_NATIVE_DOUBLE, mspace, fspace, H5P_DEFAULT, buf.data());
+    H5Sclose(mspace);
+    H5Sclose(fspace);
+    stream_spheres_written_ += new_sph;
+  }
+
+  // Flush to disk so data is safe even if the process is killed before finalizeWrite.
+  H5Fflush(this->file_, H5F_SCOPE_GLOBAL);
+}
+
+void Hdf5Dataset::finalizeWrite(float resolution)
+{
+  // Write the resolution attribute on the sphere dataset (same location as saveMap).
+  hsize_t attr_dims = 1;
+  hid_t attr_space = H5Screate_simple(1, &attr_dims, NULL);
+  this->attr_ = H5Acreate2(this->sphere_dataset_, "Resolution", H5T_NATIVE_FLOAT,
+                            attr_space, H5P_DEFAULT, H5P_DEFAULT);
+  H5Awrite(this->attr_, H5T_NATIVE_FLOAT, &resolution);
+  H5Aclose(this->attr_);
+  H5Sclose(attr_space);
+
+  H5Dclose(this->poses_dataset_);
+  H5Gclose(this->group_poses_);
+  H5Dclose(this->sphere_dataset_);
+  H5Gclose(this->group_spheres_);
+  H5Fclose(this->file_);
+
+  ROS_INFO("%s finalised: %llu reachable spheres, %llu pose entries written",
+           this->filename_.c_str(),
+           (unsigned long long)stream_spheres_written_,
+           (unsigned long long)stream_poses_written_);
 }
 
 bool Hdf5Dataset::load(map_generation::WorkSpace &ws)

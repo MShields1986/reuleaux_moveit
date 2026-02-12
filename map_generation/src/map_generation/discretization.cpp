@@ -27,15 +27,12 @@ std::unique_ptr<octomap::OcTree> Discretization::generateBoxTree(const octomap::
 {
   // TODO: diameter arg here actually gets passed a variable called radius_ on line 143...needs checking
 
-  // TODO: Consider exposing as a parameter or allowing user to explicitly define volume
-  float volume_size_factor_{1.8}; // Originally 1.5
-
   std::unique_ptr<octomap::OcTree> tree(new octomap::OcTree(float(resolution)/2));
-  for(float x = origin.x() - diameter * volume_size_factor_; x<=origin.x() + diameter * volume_size_factor_; x+=resolution)
+  for(float x = origin.x() - diameter; x<=origin.x() + diameter; x+=resolution)
   {
-    for(float y = origin.y() - diameter * volume_size_factor_; y<=origin.y() + diameter * volume_size_factor_; y+=resolution)
+    for(float y = origin.y() - diameter; y<=origin.y() + diameter; y+=resolution)
     {
-      for(float z = 0; z<=origin.z() + diameter * volume_size_factor_; z+=resolution)
+      for(float z = 0; z<=origin.z() + diameter; z+=resolution)
       {
         octomap::point3d point;
         point.x() = x;

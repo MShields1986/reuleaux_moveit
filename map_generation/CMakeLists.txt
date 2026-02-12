@@ -9,11 +9,18 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   std_msgs
   tf
+  moveit_ros_planning
   moveit_ros_planning_interface
   moveit_core)
 
 find_package(octomap REQUIRED)
 find_package(HDF5 REQUIRED)
+find_package(OpenMP)
+if(OPENMP_FOUND)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+else()
+  message(WARNING "OpenMP not found - map generation will run single-threaded")
+endif()
 
 
 add_message_files(
@@ -54,7 +61,11 @@ add_dependencies(utility map_generation_generate_messages_cpp)
 
 target_link_libraries(discretization  ${catkin_LIBRARIES} ${OCTOMAP_LIBRARIES})
 target_link_libraries(utility  ${catkin_LIBRARIES})
-target_link_libraries(reachability  ${catkin_LIBRARIES} utility)
+if(OPENMP_FOUND)
+  target_link_libraries(reachability ${catkin_LIBRARIES} utility ${OpenMP_CXX_FLAGS})
+else()
+  target_link_libraries(reachability ${catkin_LIBRARIES} utility)
+endif()
 target_link_libraries(dataset  ${catkin_LIBRARIES} utility ${HDF5_LIBRARIES} )
 target_link_libraries(map_generation  ${catkin_LIBRARIES} discretization dataset utility reachability )
 
