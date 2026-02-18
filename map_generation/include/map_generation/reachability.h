@@ -53,6 +53,7 @@ private:
   bool ik(const moveit_msgs::PositionIKRequest& req, moveit_msgs::RobotState& robot_state);
   void transformTaskpose(const geometry_msgs::Pose& base_pose, const geometry_msgs::Pose& pose_in, geometry_msgs::Pose& pose_out);
   bool createReachability(const map_generation::WorkSpace& ws);
+  bool createReachabilityFloodFill(const map_generation::WorkSpace& ws);
 
 
   boost::scoped_ptr<moveit::planning_interface::MoveGroupInterface> group_;

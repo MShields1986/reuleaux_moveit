@@ -133,6 +133,7 @@ int Discretization::getNumOfPoses()
 
 void Discretization::getInitialWorkspace(map_generation::WorkSpace& ws)
 {
+  ws_.resolution = static_cast<float>(resolution_);
   ws = ws_;
 }
 

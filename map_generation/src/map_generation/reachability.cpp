@@ -4,6 +4,9 @@
 #include <chrono>
 #include <ctime>
 #include <thread>
+#include <cmath>
+#include <cfloat>
+#include <unordered_map>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -201,10 +204,20 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
 
  bool ReachAbility::createReachableWorkspace()
  {
-   if(createReachability(init_ws_))
+   bool use_flood_fill = false;
+   nh_.param<bool>("use_flood_fill", use_flood_fill, false);
+   if (use_flood_fill)
+   {
+     ROS_INFO("Using flood-fill BFS reachability strategy.");
+     bool ok = createReachabilityFloodFill(init_ws_);
+     if (!ok)
+     {
+       ROS_WARN("Flood-fill failed. Falling back to exhaustive mode.");
+       return createReachability(init_ws_);
+     }
      return true;
-   else
-     return false;
+   }
+   return createReachability(init_ws_);
  }
 
  bool ReachAbility::createReachability(const map_generation::WorkSpace& ws)
@@ -425,8 +438,10 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
      }
    }
 
-   // Save the resolution before we free init_ws_ below.
-   const double saved_resolution = init_ws_.resolution;
+   // Save the resolution and orientation count before we free init_ws_ below.
+   const double saved_resolution = ws.resolution;
+   const int orientations_per_sphere = (!ws.WsSpheres.empty())
+     ? static_cast<int>(ws.WsSpheres[0].poses.size()) : 1;
 
    // Free init_ws_ (no longer needed after the parallel IK pass) to reclaim
    // ~1.5 GB before the memory-intensive final_ws_ construction below.
@@ -436,9 +451,6 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
    // entry as we go.  The old code merged all sphere_maps into a single
    // ws_map first, which duplicated the entire dataset (~5-8 GB extra) and
    // caused an OOM crash on large maps.
-   const float avg_poses_per_sphere = (sphere_size_ > 0)
-     ? float(pose_size_) / float(sphere_size_) : 1.0f;
-
    for (int i = 0; i < sp_size; ++i)
    {
      if (sphere_maps[i].empty()) continue;
@@ -448,7 +460,9 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
      wss.point.x = sp_coord[0];
      wss.point.y = sp_coord[1];
      wss.point.z = sp_coord[2];
-     wss.ri = double(float(sphere_maps[i].size()) / avg_poses_per_sphere * 100.0f);
+     wss.ri = (orientations_per_sphere > 0)
+       ? 100.0 * static_cast<int>(sphere_maps[i].size()) / orientations_per_sphere
+       : 0.0;
 
      for (auto& entry : sphere_maps[i])
      {
@@ -465,6 +479,406 @@ ReachAbility::ReachAbility(ros::NodeHandle& node, std::string group_name,
      final_ws_.WsSpheres.push_back(wss);
 
      // Free this sphere's data immediately to keep peak memory low.
+     reuleaux::MultiMap().swap(sphere_maps[i]);
+   }
+   final_ws_.resolution = saved_resolution;
+
+   return true;
+ }
+
+ bool ReachAbility::createReachabilityFloodFill(const map_generation::WorkSpace& ws)
+ {
+   int sp_size = sphere_size_;
+   if (sp_size == 0) return false;
+
+   // Save resolution and orientation count before init_ws_ is freed.
+   const double saved_resolution = ws.resolution;
+   const int orientations_per_sphere = (!ws.WsSpheres.empty())
+     ? static_cast<int>(ws.WsSpheres[0].poses.size()) : 1;
+
+   std::vector<reuleaux::MultiMap> sphere_maps(sp_size);
+   const auto start_time = std::chrono::steady_clock::now();
+   const int batch_size = std::max(1, sp_size / 20);
+
+   auto format_duration = [](double seconds) -> std::string {
+     int h = static_cast<int>(seconds) / 3600;
+     int m = (static_cast<int>(seconds) % 3600) / 60;
+     int s = static_cast<int>(seconds) % 60;
+     char buf[32];
+     if (h > 0)
+       snprintf(buf, sizeof(buf), "%dh %dm %ds", h, m, s);
+     else if (m > 0)
+       snprintf(buf, sizeof(buf), "%dm %ds", m, s);
+     else
+       snprintf(buf, sizeof(buf), "%ds", s);
+     return std::string(buf);
+   };
+
+   auto log_progress = [&](int done) {
+     double elapsed = std::chrono::duration<double>(
+       std::chrono::steady_clock::now() - start_time).count();
+     ROS_INFO("[FloodFill] Processed %d / %d spheres (%.1f%%) - elapsed %s",
+              done, sp_size, 100.0 * done / sp_size,
+              format_duration(elapsed).c_str());
+   };
+
+   // --- Thread setup (same as createReachability) ---
+   int num_threads = static_cast<int>(std::thread::hardware_concurrency());
+   if (num_threads <= 0) num_threads = 4;
+   nh_.param<int>("num_ik_threads", num_threads, num_threads);
+   num_threads = std::min(num_threads, sp_size);
+
+   int num_ik_attempts = 5;
+   nh_.param<int>("num_ik_attempts", num_ik_attempts, num_ik_attempts);
+
+   ROS_INFO("[FloodFill] Using %d threads, %d IK attempts per pose",
+            num_threads, num_ik_attempts);
+
+   std::vector<robot_model_loader::RobotModelLoaderPtr> thread_loaders(num_threads);
+   std::vector<robot_model::RobotModelConstPtr>         thread_models(num_threads);
+   std::vector<const robot_model::JointModelGroup*>     thread_jmgs(num_threads);
+   std::vector<robot_state::RobotStatePtr>              thread_states(num_threads);
+   std::vector<planning_scene::PlanningScenePtr>        thread_scenes(num_threads);
+   std::vector<std::string>                             load_errors(num_threads);
+
+   {
+     std::vector<std::thread> load_threads(num_threads);
+     for (int t = 0; t < num_threads; ++t)
+     {
+       load_threads[t] = std::thread(
+         [t, &thread_loaders, &thread_models, &thread_jmgs,
+          &thread_states, &thread_scenes, &load_errors, this]()
+         {
+           try
+           {
+             thread_loaders[t].reset(new robot_model_loader::RobotModelLoader("robot_description"));
+             thread_models[t] = thread_loaders[t]->getModel();
+             if (!thread_models[t]) { load_errors[t] = "getModel() returned null"; return; }
+             thread_jmgs[t] = thread_models[t]->getJointModelGroup(group_name_);
+             if (!thread_jmgs[t]) { load_errors[t] = "getJointModelGroup() returned null"; return; }
+             thread_states[t].reset(new robot_state::RobotState(thread_models[t]));
+             thread_states[t]->setToDefaultValues();
+             thread_scenes[t].reset(new planning_scene::PlanningScene(thread_models[t]));
+           }
+           catch (const std::exception& e) { load_errors[t] = e.what(); }
+         });
+     }
+     for (auto& th : load_threads) th.join();
+   }
+
+   for (int t = 0; t < num_threads; ++t)
+     if (!load_errors[t].empty())
+       throw std::runtime_error("Robot model load failed for thread " +
+                                std::to_string(t) + ": " + load_errors[t]);
+   ROS_INFO("[FloodFill] Per-thread robot models loaded.");
+
+   // --- Grid-index lookup ---
+   double res = ws.resolution;
+   if (res <= 0.0)
+   {
+     nh_.param<double>("resolution", res, 0.05);
+     ROS_WARN("[FloodFill] ws.resolution was %.6f (unset?); using ROS param resolution=%.4f",
+              (double)ws.resolution, res);
+   }
+   double x_min = DBL_MAX, y_min = DBL_MAX, z_min = DBL_MAX;
+   double y_max = -DBL_MAX;
+   for (int i = 0; i < sp_size; ++i)
+   {
+     x_min = std::min(x_min, (double)ws.WsSpheres[i].point.x);
+     y_min = std::min(y_min, (double)ws.WsSpheres[i].point.y);
+     z_min = std::min(z_min, (double)ws.WsSpheres[i].point.z);
+     y_max = std::max(y_max, (double)ws.WsSpheres[i].point.y);
+   }
+
+   auto to_ix = [&](double x) { return (int)std::llround((x - x_min) / res); };
+   auto to_iy = [&](double y) { return (int)std::llround((y - y_min) / res); };
+   auto to_iz = [&](double z) { return (int)std::llround((z - z_min) / res); };
+
+   // Packed 64-bit key; stride of 1024 supports up to ~102 m workspace at res=0.1 m.
+   const int64_t SY = 1024, SZ = 1024 * 1024;
+   auto make_key = [&](int ix, int iy, int iz) -> int64_t {
+     return (int64_t)ix + (int64_t)iy * SY + (int64_t)iz * SZ;
+   };
+
+   std::vector<int> sph_ix(sp_size), sph_iy(sp_size), sph_iz(sp_size);
+   std::unordered_map<int64_t, int> grid_index;
+   grid_index.reserve(sp_size);
+   for (int i = 0; i < sp_size; ++i)
+   {
+     sph_ix[i] = to_ix(ws.WsSpheres[i].point.x);
+     sph_iy[i] = to_iy(ws.WsSpheres[i].point.y);
+     sph_iz[i] = to_iz(ws.WsSpheres[i].point.z);
+     grid_index[make_key(sph_ix[i], sph_iy[i], sph_iz[i])] = i;
+   }
+
+   // --- Seed selection: XZ mid-slice (fixed Y) ---
+   // Use integer grid Y-indices (sph_iy) so there is no floating-point
+   // rounding between grid rows.  The raw (y_min+y_max)/2 formula can fall
+   // exactly between two adjacent rows, causing 0 seed spheres.
+   int iy_min = sph_iy[0], iy_max = sph_iy[0];
+   for (int i = 0; i < sp_size; ++i)
+   {
+     iy_min = std::min(iy_min, sph_iy[i]);
+     iy_max = std::max(iy_max, sph_iy[i]);
+   }
+   const int center_iy = (iy_min + iy_max) / 2;
+
+   auto collect_iy_slice = [&](int iy_target) -> std::vector<int> {
+     std::vector<int> slice;
+     for (int i = 0; i < sp_size; ++i)
+       if (sph_iy[i] == iy_target) slice.push_back(i);
+     return slice;
+   };
+
+   std::vector<bool> visited(sp_size, false);
+   std::vector<int> frontier = collect_iy_slice(center_iy);
+   for (int idx : frontier) visited[idx] = true;
+
+   ROS_INFO("[FloodFill] Seed XZ-slice: center_iy=%d (y~=%.3f), %zu seed spheres",
+            center_iy, y_min + center_iy * res, frontier.size());
+
+   // 6-connected neighbour offsets
+   const int DX[6] = {+1,-1, 0, 0, 0, 0};
+   const int DY[6] = { 0, 0,+1,-1, 0, 0};
+   const int DZ[6] = { 0, 0, 0, 0,+1,-1};
+
+   // Helper: run IK for a single sphere index on thread 0 (serial use only).
+   auto run_ik_serial = [&](int i)
+   {
+     std::vector<double> sp_vec;
+     reuleaux::pointToVector(ws.WsSpheres[i].point, sp_vec);
+     robot_state::RobotState& state = *thread_states[0];
+     planning_scene::PlanningScene& scene = *thread_scenes[0];
+
+     robot_state::GroupStateValidityCallbackFn constraint_fn;
+     if (check_collision_)
+     {
+       constraint_fn = [&scene](robot_state::RobotState* rs,
+                                const robot_model::JointModelGroup* jmg,
+                                const double* joint_values)
+       {
+         rs->setJointGroupPositions(jmg, joint_values);
+         rs->update();
+         collision_detection::CollisionRequest col_req;
+         collision_detection::CollisionResult col_res;
+         scene.checkSelfCollision(col_req, col_res, *rs);
+         return !col_res.collision;
+       };
+     }
+
+     for (int j = 0; j < static_cast<int>(ws.WsSpheres[i].poses.size()); ++j)
+     {
+       const geometry_msgs::Pose& reach_pose = ws.WsSpheres[i].poses[j];
+       std::vector<double> warm_seed;
+       state.copyJointGroupPositions(thread_jmgs[0], warm_seed);
+       bool found_valid = false;
+       for (int attempt = 0; attempt < num_ik_attempts && !found_valid; ++attempt)
+       {
+         if (attempt > 0) state.setToRandomPositions(thread_jmgs[0]);
+         if (state.setFromIK(thread_jmgs[0], reach_pose, ee_frame_, 0.1, constraint_fn))
+         {
+           std::vector<double> sp_pose;
+           reuleaux::poseToVector(reach_pose, sp_pose);
+           sphere_maps[i].insert(std::make_pair(sp_vec, sp_pose));
+           found_valid = true;
+         }
+       }
+       if (!found_valid)
+         state.setJointGroupPositions(thread_jmgs[0], warm_seed);
+     }
+   };
+
+   // Flush accumulator
+   int total_processed = 0;
+   std::vector<int> pending_flush;
+   pending_flush.reserve(batch_size);
+
+   // Flush by iterating 0..sp_size and skipping empties (callback skips them).
+   auto flush_processed = [&](std::vector<int>& pending) {
+     if (!write_callback_ || pending.empty()) return;
+     write_callback_(sphere_maps, 0, sp_size, pose_size_, sphere_size_);
+     for (int idx : pending)
+       reuleaux::MultiMap().swap(sphere_maps[idx]);
+     pending.clear();
+   };
+
+   bool seed_fallback_done = false;
+
+   // --- BFS loop ---
+   while (!frontier.empty())
+   {
+     int fsz = (int)frontier.size();
+
+     // Parallel IK over current frontier
+     #pragma omp parallel for num_threads(num_threads) schedule(dynamic)
+     for (int fi = 0; fi < fsz; ++fi)
+     {
+       int i = frontier[fi];
+ #ifdef _OPENMP
+       int tid = omp_get_thread_num();
+ #else
+       int tid = 0;
+ #endif
+       std::vector<double> sp_vec;
+       reuleaux::pointToVector(ws.WsSpheres[i].point, sp_vec);
+
+       robot_state::RobotState& state = *thread_states[tid];
+       planning_scene::PlanningScene& scene = *thread_scenes[tid];
+
+       robot_state::GroupStateValidityCallbackFn constraint_fn;
+       if (check_collision_)
+       {
+         constraint_fn = [&scene](robot_state::RobotState* rs,
+                                  const robot_model::JointModelGroup* jmg,
+                                  const double* joint_values)
+         {
+           rs->setJointGroupPositions(jmg, joint_values);
+           rs->update();
+           collision_detection::CollisionRequest col_req;
+           collision_detection::CollisionResult col_res;
+           scene.checkSelfCollision(col_req, col_res, *rs);
+           return !col_res.collision;
+         };
+       }
+
+       for (int j = 0; j < static_cast<int>(ws.WsSpheres[i].poses.size()); ++j)
+       {
+         const geometry_msgs::Pose& reach_pose = ws.WsSpheres[i].poses[j];
+         std::vector<double> warm_seed;
+         state.copyJointGroupPositions(thread_jmgs[tid], warm_seed);
+         bool found_valid = false;
+         for (int attempt = 0; attempt < num_ik_attempts && !found_valid; ++attempt)
+         {
+           if (attempt > 0)
+             state.setToRandomPositions(thread_jmgs[tid]);
+           if (state.setFromIK(thread_jmgs[tid], reach_pose, ee_frame_, 0.1, constraint_fn))
+           {
+             std::vector<double> sp_pose;
+             reuleaux::poseToVector(reach_pose, sp_pose);
+             sphere_maps[i].insert(std::make_pair(sp_vec, sp_pose));
+             found_valid = true;
+           }
+         }
+         if (!found_valid)
+           state.setJointGroupPositions(thread_jmgs[tid], warm_seed);
+       }
+     } // end omp parallel for
+
+     total_processed += fsz;
+
+     // --- Seed fallback (first iteration only) ---
+     if (!seed_fallback_done)
+     {
+       bool any_reachable = false;
+       for (int idx : frontier)
+         if (!sphere_maps[idx].empty()) { any_reachable = true; break; }
+
+       if (!any_reachable)
+       {
+         // Cover the full Y range from center to either edge.
+         const int max_y_steps = std::max(center_iy - iy_min, iy_max - center_iy) + 1;
+         for (int step = 1; step <= max_y_steps && !any_reachable; ++step)
+         {
+           for (int sign : {-1, +1})
+           {
+             int iy_try = center_iy + sign * step;
+             if (iy_try < iy_min || iy_try > iy_max) continue;
+             auto extra = collect_iy_slice(iy_try);
+             std::vector<int> unvisited;
+             for (int idx : extra)
+               if (!visited[idx]) { visited[idx] = true; unvisited.push_back(idx); }
+             if (unvisited.empty()) continue;
+
+             for (int idx : unvisited)
+               run_ik_serial(idx);
+
+             for (int idx : unvisited)
+               if (!sphere_maps[idx].empty()) { any_reachable = true; break; }
+
+             frontier.insert(frontier.end(), unvisited.begin(), unvisited.end());
+             total_processed += (int)unvisited.size();
+
+             if (any_reachable) break;
+             ROS_DEBUG("[FloodFill] Y-slice iy=%d had no reachable spheres, trying next.",
+                       iy_try);
+           }
+         }
+
+         if (!any_reachable)
+         {
+           ROS_ERROR("[FloodFill] No reachable spheres found across all Y-slices. "
+                     "Falling back to exhaustive.");
+           return false;
+         }
+         ROS_INFO("[FloodFill] Found reachable spheres after Y-slice expansion.");
+         // Update fsz so neighbour collection includes fallback spheres.
+         fsz = (int)frontier.size();
+       }
+       seed_fallback_done = true;
+     }
+
+     // --- Collect next frontier (serial) ---
+     std::vector<int> next_frontier;
+     for (int fi = 0; fi < fsz; ++fi)
+     {
+       int i = frontier[fi];
+       if (sphere_maps[i].empty()) continue;  // unreachable: do not expand
+       for (int d = 0; d < 6; ++d)
+       {
+         int64_t nk = make_key(sph_ix[i]+DX[d], sph_iy[i]+DY[d], sph_iz[i]+DZ[d]);
+         auto it = grid_index.find(nk);
+         if (it == grid_index.end()) continue;
+         int ni = it->second;
+         if (visited[ni]) continue;
+         visited[ni] = true;
+         next_frontier.push_back(ni);
+       }
+     }
+
+     // --- Flush accumulator ---
+     for (int idx : frontier) pending_flush.push_back(idx);
+     if ((int)pending_flush.size() >= batch_size || next_frontier.empty())
+     {
+       log_progress(total_processed);
+       flush_processed(pending_flush);
+     }
+
+     frontier = std::move(next_frontier);
+   }
+
+   ROS_INFO("[FloodFill] BFS done. Evaluated %d/%d spheres (%.1f%%)",
+            total_processed, sp_size, 100.0 * total_processed / sp_size);
+
+   // Free init_ws_ before building final_ws_ to reclaim memory.
+   { map_generation::WorkSpace empty; std::swap(init_ws_, empty); }
+
+   // Build final_ws_ from sphere_maps (used when no write_callback_ is set).
+   for (int i = 0; i < sp_size; ++i)
+   {
+     if (sphere_maps[i].empty()) continue;
+
+     map_generation::WsSphere wss;
+     const std::vector<double>& sp_coord = sphere_maps[i].begin()->first;
+     wss.point.x = sp_coord[0];
+     wss.point.y = sp_coord[1];
+     wss.point.z = sp_coord[2];
+     wss.ri = (orientations_per_sphere > 0)
+       ? 100.0 * static_cast<int>(sphere_maps[i].size()) / orientations_per_sphere
+       : 0.0;
+
+     for (auto& entry : sphere_maps[i])
+     {
+       geometry_msgs::Pose pp;
+       pp.position.x    = entry.second[0];
+       pp.position.y    = entry.second[1];
+       pp.position.z    = entry.second[2];
+       pp.orientation.x = entry.second[3];
+       pp.orientation.y = entry.second[4];
+       pp.orientation.z = entry.second[5];
+       pp.orientation.w = entry.second[6];
+       wss.poses.push_back(pp);
+     }
+     final_ws_.WsSpheres.push_back(wss);
      reuleaux::MultiMap().swap(sphere_maps[i]);
    }
    final_ws_.resolution = saved_resolution;
