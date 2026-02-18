@@ -12,6 +12,7 @@
     <arg name="num_ik_threads" default="4"/>
     <arg name="num_ik_attempts" default="5"/>
     <arg name="use_service_ik" default="false"/>
+    <arg name="use_flood_fill" default="false"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
@@ -31,6 +32,7 @@
               <param name="num_ik_threads" value="$(arg num_ik_threads)"/>
               <param name="num_ik_attempts" value="$(arg num_ik_attempts)"/>
               <param name="use_service_ik" value="$(arg use_service_ik)"/>
+              <param name="use_flood_fill" value="$(arg use_flood_fill)"/>
               <param name="check_collision" value="true"/>
               <param name="path" value="$(find map_generation)/maps/"/>
               <param name="filename" value="default"/>

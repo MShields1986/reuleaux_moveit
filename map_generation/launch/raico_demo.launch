@@ -19,13 +19,17 @@
     <arg name="num_ik_threads" default="20"/> <!-- Ignored if use_service_ik -->
     <arg name="num_ik_attempts" default="1"/> <!-- Ignored if use_service_ik -->
     <arg name="use_service_ik" default="false"/>
+    <arg name="use_flood_fill" default="true"/>
 
     <!-- 20 cores processes around 240 spheres / min at 1 attempt -->
-    <!-- 288670 spheres // 20 hrs -->
-    <arg name="resolution" default="0.05"/>
-    <!-- 35200 spheres // 2.4 hrs -->
+    <!-- 2255113 spheres // ? hrs naive // 11.2 hrs flood fill -->
+    <!-- Final workspace has 193919 spheres and 3186286 poses -->
+    <arg name="resolution" default="0.025"/>
+    <!-- 288670 spheres // 20 hrs naive // 1.8 hrs flood fill -->
+    <!-- <arg name="resolution" default="0.05"/> -->
+    <!-- 35200 spheres // 2.4 hrs naive // 15 mins flood fill -->
     <!-- <arg name="resolution" default="0.1"/> -->
-    <!-- 4400 spheres // 22 mins -->
+    <!-- 4400 spheres // 22 mins naive // 3 mins flood fill -->
     <!-- <arg name="resolution" default="0.2"/> -->
     <!-- <arg name="resolution" default="0.25"/> -->
     <!-- <arg name="resolution" default="0.5"/> -->
@@ -47,6 +51,7 @@
               <param name="num_ik_threads" value="$(arg num_ik_threads)"/>
               <param name="num_ik_attempts" value="$(arg num_ik_attempts)"/>
               <param name="use_service_ik" value="$(arg use_service_ik)"/>
+              <param name="use_flood_fill" value="$(arg use_flood_fill)"/>
               <param name="check_collision" value="true"/>
               <param name="path" value="$(find map_generation)/maps/"/>
               <param name="filename" value="default"/>

@@ -72,9 +72,11 @@ void mapGeneration::filterWorkspace()
   saved_incrementally_ = true;
   saved_filename_ = out_filename;
 
-  // Capture stats needed to compute per-sphere RI inside the callback.
-  const int captured_pose_size   = init_pose_size_;
-  const int captured_sphere_size = init_sp_size_;
+  // Capture orientation count from init_ws_ before it is freed into reach.
+  // Every sphere has the same fixed number of orientations, so reading from
+  // the first sphere is sufficient.
+  const int orientations_per_sphere = (!init_ws_.WsSpheres.empty())
+    ? static_cast<int>(init_ws_.WsSpheres[0].poses.size()) : 1;
 
   std::unique_ptr<reuleaux::ReachAbility> reach(
     new reuleaux::ReachAbility(nh_, group_name_, ee_frame_, check_collision_));
@@ -85,11 +87,8 @@ void mapGeneration::filterWorkspace()
 
   // Register the batch-save callback.  After each ~5% batch the results are
   // converted to HDF5 format, appended to disk, and freed from RAM.
-  const float avg_poses = (captured_sphere_size > 0)
-    ? float(captured_pose_size) / float(captured_sphere_size) : 1.0f;
-
   reach->setBatchSaveCallback(
-    [h5, avg_poses, this]
+    [h5, orientations_per_sphere, this]
     (const std::vector<reuleaux::MultiMap>& sphere_maps,
      int b_start, int b_end, int /*pose_size*/, int /*sphere_size*/)
     {
@@ -101,9 +100,11 @@ void mapGeneration::filterWorkspace()
       {
         if (sphere_maps[i].empty()) continue;
         const std::vector<double>& sp_coord = sphere_maps[i].begin()->first;
-        float d = float(sphere_maps[i].size()) / avg_poses * 100.0f;
+        double d = (orientations_per_sphere > 0)
+          ? 100.0 * static_cast<int>(sphere_maps[i].size()) / orientations_per_sphere
+          : 0.0;
         spheres.push_back(sp_coord);
-        ri.push_back(double(d));
+        ri.push_back(d);
         final_sp_size_++;
         for (const auto& entry : sphere_maps[i])
         {
