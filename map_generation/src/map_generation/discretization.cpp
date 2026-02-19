@@ -28,17 +28,23 @@ std::unique_ptr<octomap::OcTree> Discretization::generateBoxTree(const octomap::
   // TODO: diameter arg here actually gets passed a variable called radius_ on line 143...needs checking
 
   std::unique_ptr<octomap::OcTree> tree(new octomap::OcTree(float(resolution)/2));
-  for(float x = origin.x() - diameter; x<=origin.x() + diameter; x+=resolution)
+  // Use integer loop counters so each coordinate is computed as i*resolution
+  // (a single double multiply then cast to float) rather than accumulated
+  // float32 additions.  Accumulated float32 arithmetic introduces errors
+  // > half a voxel (~0.006 m at res=0.025) after ~80 steps, causing some grid
+  // points to snap into an adjacent OctoMap cell and creating sparse ghost layers.
+  const int n_xy = static_cast<int>(std::round(2.0 * diameter / resolution));
+  const int n_z  = static_cast<int>(std::round((origin.z() + diameter) / resolution));
+  for (int ix = 0; ix <= n_xy; ++ix)
   {
-    for(float y = origin.y() - diameter; y<=origin.y() + diameter; y+=resolution)
+    const float x = static_cast<float>(origin.x() - diameter + ix * resolution);
+    for (int iy = 0; iy <= n_xy; ++iy)
     {
-      for(float z = 0; z<=origin.z() + diameter; z+=resolution)
+      const float y = static_cast<float>(origin.y() - diameter + iy * resolution);
+      for (int iz = 0; iz <= n_z; ++iz)
       {
-        octomap::point3d point;
-        point.x() = x;
-        point.y() = y;
-        point.z() = z;
-        tree->updateNode(point, true);
+        const float z = static_cast<float>(iz * resolution);
+        tree->updateNode(octomap::point3d(x, y, z), true);
       }
     }
   }
@@ -139,8 +145,37 @@ void Discretization::getInitialWorkspace(map_generation::WorkSpace& ws)
 
 void Discretization::discretize()
 {
-  auto tree = generateBoxTree(center_, resolution_, radius_);
-  createCenters(tree, centers_);
+  // Compute sphere centres directly using integer loop counters and double
+  // arithmetic, bypassing the OcTree intermediate step.
+  //
+  // The previous approach inserted grid points (at multiples of resolution)
+  // into an OcTree with cell size resolution/2.  Every such point falls
+  // EXACTLY on an OcTree cell boundary, so whether it snaps to key 2k or
+  // 2k-1 depends on float rounding in the key computation.  For example at
+  // resolution=0.1: float(0.5)/(float(0.1)/2) ≈ 9.9999998 → key 9 instead
+  // of 10, skipping that z-layer entirely and creating visible banding.
+  // Skipping the OcTree eliminates all snapping ambiguity.
+  centers_.resize(0);
+  const int n_xy = static_cast<int>(std::round(2.0 * radius_ / resolution_));
+  const int n_z  = static_cast<int>(std::round((static_cast<double>(center_.z()) + radius_) / resolution_));
+  centers_.reserve((n_xy + 1) * (n_xy + 1) * (n_z + 1));
+  for (int ix = 0; ix <= n_xy; ++ix)
+  {
+    for (int iy = 0; iy <= n_xy; ++iy)
+    {
+      for (int iz = 0; iz <= n_z; ++iz)
+      {
+        geometry_msgs::Point p;
+        // Cast to float so that sphere_dataset (float64) and poses_dataset
+        // (float32) hold the same value when the Reuleaux loader reads both
+        // back as double and compares them with exact equality.
+        p.x = static_cast<float>(static_cast<double>(center_.x()) - radius_ + ix * resolution_);
+        p.y = static_cast<float>(static_cast<double>(center_.y()) - radius_ + iy * resolution_);
+        p.z = static_cast<float>(iz * resolution_);
+        centers_.push_back(p);
+      }
+    }
+  }
   createPoses(centers_, poses_);
 }
 

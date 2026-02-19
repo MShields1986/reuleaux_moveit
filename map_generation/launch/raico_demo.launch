@@ -22,8 +22,8 @@
     <arg name="use_flood_fill" default="true"/>
 
     <!-- 20 cores processes around 240 spheres / min at 1 attempt -->
-    <!-- 2255113 spheres // ? hrs naive // 11.2 hrs flood fill -->
-    <!-- Final workspace has 193919 spheres and 3186286 poses -->
+    <!-- 2255127 spheres // 5 days naive // 14.2 hrs flood fill -->
+    <!-- Final workspace has 240688 spheres and 3790266 poses -->
     <arg name="resolution" default="0.025"/>
     <!-- 288670 spheres // 20 hrs naive // 1.8 hrs flood fill -->
     <!-- <arg name="resolution" default="0.05"/> -->

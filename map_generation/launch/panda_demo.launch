@@ -5,14 +5,17 @@
     <arg name="base_placement" default="false"/>    <!-- requires load_manipulator:=false -->
 
     <arg name="moveit_pkg" default="panda_moveit_config"/>
+    <arg name="robot_name" default="panda"/>
     <arg name="move_group" default="panda_arm"/>
     <arg name="planning_frame" default="panda_link0"/>
     <arg name="ee_frame" default="panda_hand_tcp"/>
-    <arg name="resolution" default="0.2"/>
-    <arg name="num_ik_threads" default="4"/>
-    <arg name="num_ik_attempts" default="5"/>
+
+    <arg name="resolution" default="0.05"/>
+
+    <arg name="num_ik_threads" default="20"/> <!-- Ignored if use_service_ik -->
+    <arg name="num_ik_attempts" default="1"/> <!-- Ignored if use_service_ik -->
     <arg name="use_service_ik" default="false"/>
-    <arg name="use_flood_fill" default="false"/>
+    <arg name="use_flood_fill" default="true"/>
 
     <group if="$(arg load_manipulator)">    <!-- Map Creation -->
         <!-- Load the manipulator MoveIt! demo -->
@@ -28,7 +31,7 @@
               <param name="ee_frame" value="$(arg ee_frame)"/>
               <param name="pkg_name" value="$(arg moveit_pkg)"/>
               <param name="resolution" value="$(arg resolution)"/>
-              <param name="radius" value="1"/>
+              <param name="radius" value="2"/>
               <param name="num_ik_threads" value="$(arg num_ik_threads)"/>
               <param name="num_ik_attempts" value="$(arg num_ik_attempts)"/>
               <param name="use_service_ik" value="$(arg use_service_ik)"/>
@@ -44,7 +47,7 @@
         <group unless="$(arg create_map)">
             <group unless="$(arg base_placement)">   <!-- Load and Visualise Reachability Map -->
                 <!-- Use the original Reuleaux package's map loader -->
-                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/$(arg move_group)_$(arg resolution)_reachability.h5" />
+                <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/$(arg robot_name)_$(arg move_group)_$(arg resolution)_reachability.h5" />
 
                 <!-- Reuleaux's load map doesn't use the same frame as the frame the map was created in for some reason, it forces base_link and isn't parameterised currently, so we need a static tf from the planning frame to the base_link frame -->
                 <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />
@@ -69,7 +72,7 @@
             <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg planning_frame)_2_base_link" args="0 0 0 0 0 0 $(arg planning_frame) base_link" />
 
             <!-- Use the original Reuleaux package's map loader -->
-            <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/$(arg move_group)_$(arg resolution)_inverse_reachability.h5"/>
+            <node pkg="map_creator" type="load_reachability_map" name="reachability_map_loader" args="$(find map_generation)/maps/$(arg robot_name)_$(arg move_group)_$(arg resolution)_inverse_reachability.h5"/>
 
             <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_generation)/config/panda_demo.rviz"/>
         </group>

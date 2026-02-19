@@ -71,108 +71,72 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          ectane:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          iiwa_link_0:
+          kinova_base_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_1:
+          kinova_bracelet_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_2:
+          kinova_camera_color_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_camera_depth_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_camera_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_end_effector_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_forearm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_3:
+          kinova_ft_sensor_joint_ee:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_ft_sensor_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_4:
+          kinova_half_arm_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_5:
+          kinova_half_arm_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_6:
+          kinova_shoulder_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_7:
+          kinova_spherical_wrist_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_ee:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_back_left_wheel_link:
+          kinova_spherical_wrist_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_back_right_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_base_footprint:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_base_top_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_front_left_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_front_right_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_laser_B1_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_laser_B4_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_riser_flange_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          lf_ec_probe_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          lf_ec_probe_contact_frame:
+          kinova_tool_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -213,6 +177,70 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
           rs_camera_1_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_footprint:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_front_left_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_front_mount:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_front_right_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_inertial_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_rear_left_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_rear_mount:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_rear_right_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_riser_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          ut_probe_base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          ut_probe_contact_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          ut_probe_realsense_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          ut_probe_wheel_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -240,7 +268,7 @@ Visualization Manager:
         Goal State Color: 250; 128; 0
         Interactive Marker Size: 0
         Joint Violation Color: 255; 0; 255
-        Planning Group: ec_contact
+        Planning Group: ut
         Query Goal State: false
         Query Start State: false
         Show Workspace: false
@@ -263,108 +291,72 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          ectane:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          iiwa_link_0:
+          kinova_base_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_1:
+          kinova_bracelet_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_2:
+          kinova_camera_color_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_camera_depth_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_camera_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_end_effector_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_forearm_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_3:
+          kinova_ft_sensor_joint_ee:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          kinova_ft_sensor_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_4:
+          kinova_half_arm_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_5:
+          kinova_half_arm_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_6:
+          kinova_shoulder_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_7:
+          kinova_spherical_wrist_1_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          iiwa_link_ee:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_back_left_wheel_link:
+          kinova_spherical_wrist_2_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
             Value: true
-          kmr_back_right_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_base_footprint:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_base_top_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          kmr_front_left_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_front_right_wheel_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_laser_B1_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_laser_B4_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          kmr_riser_flange_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          lf_ec_probe_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          lf_ec_probe_contact_frame:
+          kinova_tool_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -409,6 +401,70 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          scout_base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_footprint:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_front_left_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_front_mount:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_front_right_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_inertial_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_rear_left_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_rear_mount:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          scout_rear_right_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          scout_riser_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          ut_probe_base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          ut_probe_contact_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          ut_probe_realsense_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          ut_probe_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
         Robot Alpha: 0.800000011920929
         Show Robot Collision: false
         Show Robot Visual: true
@@ -416,7 +472,7 @@ Visualization Manager:
       Velocity_Scaling_Factor: 0.1
     - Class: workspace_visualization/ReachabilityMap
       Color by Reachability: true
-      Disect: 1st_Half
+      Disect: Middle_Slice
       Enabled: true
       Highest Reachability Index: 100
       Lowest Reachability Index: 0
@@ -428,9 +484,9 @@ Visualization Manager:
       Queue Size: 10
       Shape: Sphere
       Shape Property:
-        Alpha: 0.30000001192092896
+        Alpha: 0.10000000149011612
         Color: 255; 225; 102
-        Size: 0.05000000074505806
+        Size: 0.02500000037252903
       Show Poses: false
       Show Shape: true
       Topic: /reachability_map
@@ -452,7 +508,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 3.5385894775390625
+      Distance: 3.429316997528076
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -462,15 +518,15 @@ Visualization Manager:
       Focal Point:
         X: 0
         Y: 0
-        Z: -0.4000000059604645
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.07039821147918701
-      Target Frame: iiwa_link_0
-      Yaw: 1.5603982210159302
+      Pitch: 0.15039826929569244
+      Target Frame: base_link
+      Yaw: 0.015398162417113781
     Saved: ~
 Window Geometry:
   Displays:
