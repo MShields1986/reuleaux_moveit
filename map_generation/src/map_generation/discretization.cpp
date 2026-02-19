@@ -28,17 +28,23 @@ std::unique_ptr<octomap::OcTree> Discretization::generateBoxTree(const octomap::
   // TODO: diameter arg here actually gets passed a variable called radius_ on line 143...needs checking
 
   std::unique_ptr<octomap::OcTree> tree(new octomap::OcTree(float(resolution)/2));
-  for(float x = origin.x() - diameter; x<=origin.x() + diameter; x+=resolution)
+  // Use integer loop counters so each coordinate is computed as i*resolution
+  // (a single double multiply then cast to float) rather than accumulated
+  // float32 additions.  Accumulated float32 arithmetic introduces errors
+  // > half a voxel (~0.006 m at res=0.025) after ~80 steps, causing some grid
+  // points to snap into an adjacent OctoMap cell and creating sparse ghost layers.
+  const int n_xy = static_cast<int>(std::round(2.0 * diameter / resolution));
+  const int n_z  = static_cast<int>(std::round((origin.z() + diameter) / resolution));
+  for (int ix = 0; ix <= n_xy; ++ix)
   {
-    for(float y = origin.y() - diameter; y<=origin.y() + diameter; y+=resolution)
+    const float x = static_cast<float>(origin.x() - diameter + ix * resolution);
+    for (int iy = 0; iy <= n_xy; ++iy)
     {
-      for(float z = 0; z<=origin.z() + diameter; z+=resolution)
+      const float y = static_cast<float>(origin.y() - diameter + iy * resolution);
+      for (int iz = 0; iz <= n_z; ++iz)
       {
-        octomap::point3d point;
-        point.x() = x;
-        point.y() = y;
-        point.z() = z;
-        tree->updateNode(point, true);
+        const float z = static_cast<float>(iz * resolution);
+        tree->updateNode(octomap::point3d(x, y, z), true);
       }
     }
   }
