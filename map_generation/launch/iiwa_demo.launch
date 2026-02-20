@@ -19,11 +19,12 @@
     <arg name="num_ik_threads" default="20"/> <!-- Ignored if use_service_ik -->
     <arg name="num_ik_attempts" default="1"/> <!-- Ignored if use_service_ik -->
     <arg name="use_service_ik" default="false"/>
-    <arg name="use_flood_fill" default="false"/>
+    <arg name="use_flood_fill" default="true"/>
 
     <!-- 20 cores processes around 200 spheres / min at 1 attempt -->
+    <arg name="resolution" default="0.025"/>
     <!-- 520237 spheres // 43.4 hrs -->
-    <arg name="resolution" default="0.05"/>
+    <!-- <arg name="resolution" default="0.05"/> -->
     <!-- 67570 spheres // 5.6 hrs -->
     <!-- <arg name="resolution" default="0.1"/> -->
     <!-- 35301 spheres // 2.9 hrs -->
